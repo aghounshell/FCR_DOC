@@ -30,14 +30,14 @@ la_results <- read.csv("./Data/rev_FCR_results_LA.csv") %>%
   rename(DateTime = datetime)
 
 ### Load in Inflow data ----
-# Weir discharge/temperature
+# Weir discharge/temperature - https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=202&revision=8
 # Last Downloaded: 01 March 23
-# Constrain to: 2015-2021
-#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/202/10/c065ff822e73c747f378efe47f5af12b"
-#infile1 <- paste0(getwd(),"/Data/Inflow_2013_2022.csv")
+# Using data from 2017-2021
+#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/202/8/cc045f9fe32501138d5f4e1e7f40d492"
+#infile1 <- paste0(getwd(),"/Data/Inflow_2013_2021.csv")
 #download.file(inUrl1,infile1,method="curl")
 
-inflow <- read.csv("./Data/Inflow_2013_2022.csv",header=T) %>% 
+inflow <- read.csv("./Data/Inflow_2013_2021.csv",header=T) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
   select(Reservoir:VT_Temp_C)
 
@@ -92,13 +92,14 @@ for (i in 1:length(inflow_daily_full$DateTime)){
 }
 
 ### Load DOC data ----
+# From EDI: https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=199&revision=10
 # Last downloaded: 1 Mar 2024
-# Constrain to 2017-2021
-#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/199/11/509f39850b6f95628d10889d66885b76" 
-infile1 <- paste0(getwd(),"/Data/chemistry_2013_2022.csv")
-download.file(inUrl1,infile1,method="curl")
+# Using data from 2017-2021
+#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/199/10/aa2ccc23688fc908f9d61cb217210a3d" 
+#infile1 <- paste0(getwd(),"/Data/chemistry_2013_2021.csv")
+#download.file(inUrl1,infile1,method="curl")
 
-chem <- read.csv("./Data/chemistry_2013_2022.csv", header=T) %>%
+chem <- read.csv("./Data/chemistry_2013_2021.csv", header=T) %>%
   select(Reservoir:DIC_mgL) %>%
   dplyr::filter(Reservoir=="FCR") %>%
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
@@ -326,7 +327,7 @@ vol_depths <- data.frame("Depth" = c(0.1,1.6,3.8,5.0,6.2,8.0,9.0), "Vol_m3" = c(
 
 ### Calculate DOC processing for Epi and Hypo -----
 # First, separate by depth and convert to mass for each depth layer
-# Remove time points if there are no observations in the epi, mid, or hypo
+# Remove time points if there are no observations in the epi, mid, or hypo layers
 doc_box <- chem_50 %>% 
   select(DateTime,Depth_m,DOC_mgL) %>% 
   pivot_wider(names_from = Depth_m, values_from = DOC_mgL, values_fil = NA, values_fn = mean, names_prefix = "DOC_") %>% 
@@ -334,13 +335,10 @@ doc_box <- chem_50 %>%
   filter(!if_all(c(DOC_3.8,DOC_5,DOC_6.2), is.na)) %>% 
   filter(!if_all(c(DOC_8,DOC_9),is.na))
 
-
-#### STOPPED HERE!! CAN YOU MUTATE ACROSS ROWS??? ######
-
-
-doc_box_full <- as.data.frame(seq(as.POSIXct("2015-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+# Create full timeseries
+doc_box_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 doc_box_full <- doc_box_full %>% 
-  rename(DateTime = `seq(as.POSIXct("2015-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 doc_box_full <- left_join(doc_box_full,doc_box,by="DateTime")
 
 doc_box_full <- doc_box_full %>% 
@@ -352,53 +350,67 @@ doc_box_full <- doc_box_full %>%
   mutate(DOC_8 = na.fill(na.approx(DOC_8,na.rm=FALSE),"extend")) %>% 
   mutate(DOC_9 = na.fill(na.approx(DOC_9,na.rm=FALSE),"extend"))
 
-## Create 'boot-strapped' values from [DOC] and MDL
+## Create 'boot-strapped' values from [DOC] based on DOC MDL
 # Create 3D array of random variables from the measured DOC and the MDL (0.11)
 # For each timestep and each depth
-doc_lake_model_input <- array(data = NA, dim=c(1000,2557,7))
+doc_lake_model_input <- array(data = NA, dim=c(length(doc_box_full$DateTime),1000,7))
 
-for (j in 1:1000){
-  for (i in 1:2557){
-    for (k in 1:7){
-      doc_lake_model_input[j,i,k] <- rtruncnorm(1,a=0,mean=doc_box_full[i,k+1],sd=0.11/2)
-    }
+for (i in 1:length(doc_box_full$DateTime)){
+  for (k in 1:7){
+    # Find location and shape for rlnorm using the mean and sd
+    m <- doc_box_full[i,k+1]
+    s <- 0.11/2
+    location <- log(m^2 / sqrt(s^2 + m^2))
+    shape <- sqrt(log(1 + (s^2 / m^2)))
+    
+    doc_lake_model_input[i,1:1000,k] <- rlnorm(n=1000,mean=location,sd=shape)
   }
 }
 
-## Create boot-strapped parameters for volume - assuming volume +/-10%
-vol_model_input <- array(data = NA, dim=c(1000,7,1))
+## Create boot-strapped parameters for volume - assuming volume +/-5%
+vol_model_input <- as.data.frame(matrix(data=NA, ncol=1000,nrow=7))
 
-for (j in 1:1000){
-  for (i in 1:7){
-    vol_model_input[j,i,1] <- rtruncnorm(1,a=0,mean=vol_depths$Vol_m3[i],sd=vol_depths$Vol_m3[i]*0.05)
-  }
+for (i in 1:7){
+  # Find location and shape for rlnorm using the mean and sd
+  m <- vol_depths$Vol_m3[i]
+  s <- vol_depths$Vol_m3[i]*0.05
+  location <- log(m^2 / sqrt(s^2 + m^2))
+  shape <- sqrt(log(1 + (s^2 / m^2)))
+  
+  # Calculate distribution for each depth
+  vol_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
-## Create boot-strapped parameters for DOC inflow - using LOQ for the SD
-doc_inflow_full <- as.data.frame(seq(as.POSIXct("2015-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+## Create boot-strapped parameters for DOC inflow - using MDL for the SD
+doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 doc_inflow_full <- doc_inflow_full %>% 
-  rename(DateTime = `seq(as.POSIXct("2015-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 doc_inflow_full <- left_join(doc_inflow_full,chem_100,by="DateTime")
 
 doc_inflow_full <- doc_inflow_full %>% 
   select(DateTime,DOC_mgL) %>% 
   mutate(DOC_mgL = na.fill(na.approx(DOC_mgL,na.rm=FALSE),"extend"))
 
-doc_inflow_input <- array(data = NA, dim=c(1000,2558,1))
+doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
 
-for (j in 1:1000){
-  for (i in 1:2558){
-    doc_inflow_input[j,i,1] <- rtruncnorm(1,a=0,mean=doc_inflow_full$DOC_mgL[i],sd=0.11/2)
-  }
+for (i in 1:length(doc_inflow_full$DateTime)){
+  # Find location and shape for rlnorm using the mean and sd
+  m <- doc_inflow_full$DOC_mgL[i]
+  s <- 0.11/2
+  location <- log(m^2 / sqrt(s^2 + m^2))
+  shape <- sqrt(log(1 + (s^2 / m^2)))
+  
+  # Calculate distribution for each depth
+  doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
 ###############################################################################
 
 ## Determine location of the epi and hypo for each time point
 # Add in thermocline depth information
-thermocline_depth <- as.data.frame(seq(as.POSIXct("2015-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+thermocline_depth <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 thermocline_depth <- thermocline_depth %>% 
-  rename(DateTime = `seq(as.POSIXct("2015-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 thermocline_depth <- left_join(thermocline_depth,la_results,by="DateTime")
 
 thermocline_depth <- thermocline_depth %>% 
@@ -425,7 +437,7 @@ thermocline_depth <- thermocline_depth %>%
 
 ###############################################################################
 
-## Have bootstrapped inputs for:
+## Have bootstrapped inputs (n=1000) for:
 # In lake DOC concentrations for all depths (doc_lake_model_input)
 # Inflow DOC concentrations (doc_inflow_input)
 # Inflow rates (inflow_model_input)
@@ -435,58 +447,61 @@ thermocline_depth <- thermocline_depth %>%
 ## Then calculate processing
 
 ### Calculate total mass of DOC at each depth ###
-doc_lake_mass <- array(data = NA, dim=c(1000,2557,7)) # Mass of DOC at each depth (DOC_mgL * Vol_m3 = DOC_g)
+doc_lake_mass <- array(data = NA, dim=c(length(doc_box_full$DateTime),1000,7)) # Mass of DOC at each depth (DOC_mgL * Vol_m3 = DOC_g)
 
 for (j in 1:1000){
-  for (i in 1:2557){
+  for (i in 1:length(doc_box_full$DateTime)){
     for (k in 1:7){
-      doc_lake_mass[j,i,k] <- vol_model_input[j,k,1]*doc_lake_model_input[j,i,k]
+      doc_lake_mass[i,j,k] <- vol_model_input[k,j]*doc_lake_model_input[i,j,k]
     }
   }
 }
 
-## Calculate mass of inflow - for hypo and epi (will need to include parameter estimation at some point)
-
-doc_inflow_mass <- array(data = NA, dim=c(1000,2557,1)) # Mass of DOC inflow (total) - DOC_mgL * m3_s = g/day
+## Calculate mass of inflow - for hypo and epi
+doc_inflow_mass <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
 
 for (j in 1:1000){
-  for (i in 1:2557){
-    doc_inflow_mass[j,i,1] <- doc_inflow_input[j,i,1]*inflow_model_input[j,i,1]*60*60*24
+  for (i in 1:length(doc_inflow_full$DateTime)){
+    doc_inflow_mass[i,j] <- doc_inflow_input[i,j]*inflow_model_input[i,j]*60*60*24
   }
 }
 
 ### Calculate outflow from epi and hypo ###
-
 # Epi outflow = inflow * [DOC] at 0.1 m = g/d
-
-doc_epi_mass_outflow <-  array(data = NA, dim=c(1000,2557,1)) # Mass of DOC outflow from the epi
+doc_epi_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
 
 for (j in 1:1000){
-  for (i in 1:2557){
-    doc_epi_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,1]*60*60*24
+  for (i in 1:length(doc_box_full$DateTime)){
+    doc_epi_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,1]*60*60*24
   }
 }
 
 # 'Outflow' to Epi from Hypo: concentration * outflow = mass/day
-doc_hypo_mass_outflow <- array(data = NA, dim=c(1000, 2557, 1)) # Mass of DOC outflow from the hypo
+doc_hypo_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Mass of DOC outflow from the hypo
 
 for (j in 1:1000){
-  for (i in 1:2557){
+  for (i in 1:length(doc_box_full$DateTime)){
     if(thermocline_depth$hypo_top_depth_m[i] == 1.6) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,2]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,2]*60*60*24
     } else if(thermocline_depth$hypo_top_depth_m[i] == 3.8) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,3]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,3]*60*60*24
     } else if(thermocline_depth$hypo_top_depth_m[i] == 5) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,4]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,4]*60*60*24
     } else if(thermocline_depth$hypo_top_depth_m[i] == 6.2) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,5]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,5]*60*60*24
     } else if(thermocline_depth$hypo_top_depth_m[i] == 8) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,6]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,6]*60*60*24
     } else if(thermocline_depth$hypo_top_depth_m[i] == 9) {
-      doc_hypo_mass_outflow[j,i,1] <- inflow_model_input[j,i,1]*doc_lake_model_input[j,i,7]*60*60*24
+      doc_hypo_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,7]*60*60*24
     }
   }
 }
+
+#### CHECK DISTRIBUTION OF INFLOW??? ##### SEEMS TO BE OFF A BIT
+
+######## STOPPED HERE!!!! ############
+
+
 
 ### Calculate [DOC]/dt for each time point ###
 
