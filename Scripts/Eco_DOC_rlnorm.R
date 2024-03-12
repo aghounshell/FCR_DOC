@@ -19,7 +19,6 @@ pacman::p_load(tidyverse,ggplot2,ggpubr,rMR,lme4,PerformanceAnalytics,astsa,cowp
                DescTools,MuMIn,rsq,Metrics,truncnorm)
 
 ###############################################################################
-
 ## Load in various datastreams for box model
 # Import Lake Analyzer thermocline results to determine median thermocline depth
 # See: LakeAnalyzer_thermo.R - from 2016-2021
@@ -28,7 +27,7 @@ pacman::p_load(tidyverse,ggplot2,ggpubr,rMR,lme4,PerformanceAnalytics,astsa,cowp
 la_results <- read.csv("./Data/rev_FCR_results_LA.csv") %>% 
   select(datetime,thermo.depth) %>% 
   mutate(datetime = as.POSIXct(strptime(datetime, "%Y-%m-%d", tz="EST"))) %>% 
-  rename(DateTime = datetime)
+  dplyr::rename(DateTime = datetime)
 
 ### Load in Inflow data ----
 # Weir discharge/temperature - https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=202&revision=8
@@ -60,6 +59,9 @@ inflow_daily <- inflow %>%
   group_by(DateTime) %>% 
   summarize_at(vars("WVWA_Flow_cms"),funs(mean(.,na.rm=TRUE),sd)) %>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & DateTime < as.POSIXct("2022-01-01"))
+
+## Save daily inflow for ARIMA modeling
+write.csv(inflow_daily, "./Data/inflow_daily.csv",row.names=FALSE)
 
 # Create daily timeseries - missing data = NA
 inflow_daily_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
@@ -194,137 +196,6 @@ ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
 doc_lm <- lm(DOC_mgL ~ mean, data = doc_100)
 summary(doc_lm)
 
-# Plot DOC concentrations with depth for the study period - separated by year
-# For supplementary information
-doc_2017 <- ggplot()+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=2)+
-  geom_line(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=0.8)+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2017-12-31"))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  xlab("2017")+
-  labs(color="Depth (m)")+
-  theme_classic(base_size = 15)
-
-doc_2018 <- ggplot()+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=2)+
-  geom_line(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=0.8)+
-  xlim(as.POSIXct("2018-01-01"),as.POSIXct("2018-12-31"))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  xlab("2018")+
-  labs(color="Depth (m)")+
-  theme_classic(base_size = 15)
-
-doc_2019 <- ggplot()+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=2)+
-  geom_line(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=0.8)+
-  xlim(as.POSIXct("2019-01-01"),as.POSIXct("2019-12-31"))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  xlab("2019")+
-  labs(color="Depth (m)")+
-  theme_classic(base_size = 15)
-
-doc_2020 <- ggplot()+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=2)+
-  geom_line(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=0.8)+
-  xlim(as.POSIXct("2020-01-01"),as.POSIXct("2020-12-31"))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  xlab("2020")+
-  labs(color="Depth (m)")+
-  theme_classic(base_size = 15)
-
-doc_2021 <- ggplot()+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=2)+
-  geom_line(chem_50,mapping=aes(x=DateTime,y=DOC_mgL,color=as.factor(Depth_m)),size=0.8)+
-  geom_point(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=2)+
-  geom_line(chem_100,mapping=aes(x=DateTime,y=DOC_mgL,color="Inflow"),size=0.8)+
-  xlim(as.POSIXct("2021-01-01"),as.POSIXct("2021-12-31"))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  xlab("2021")+
-  labs(color="Depth (m)")+
-  theme_classic(base_size = 15)
-
-doc_conc <- ggarrange(doc_2017,doc_2018,doc_2019,doc_2020,doc_2021,ncol=2,nrow=3,common.legend = TRUE)
-
-ggsave("./Figs/SI_DOC_Concentration_Depth.png",doc_conc,dpi=800,width=13,height=9)
-
-## Plot thermocline depth through time and discharge at the primary inflow
-la_results %>% 
-  drop_na(thermo.depth) %>% 
-  ggplot(mapping=aes(x=DateTime,y=-thermo.depth))+
-  geom_hline(yintercept = -0.1,linetype="dashed",color="grey")+
-  geom_hline(yintercept = -1.6, linetype="dashed",color="grey")+
-  geom_hline(yintercept = -3.8, linetype="dashed",color="grey")+
-  geom_hline(yintercept = -5, linetype="dashed",color="grey")+
-  geom_hline(yintercept = -6.2, linetype="dashed",color="grey")+
-  geom_hline(yintercept = -8, linetype="dashed",color="grey")+
-  geom_hline(yintercept = -9, linetype="dashed",color="grey")+
-  geom_point(size=2)+
-  geom_line(size=0.8)+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  xlab("")+
-  ylab("Thermocline depth (m)")+
-  theme_classic(base_size = 15)
-
-ggsave("./Figs/SI_ThermoDepth.png",dpi=800,width=9,height=4)
-
 # Create vector of different volumes for each depth: based on L&O-L 2020 paper
 # https://aslopubs.onlinelibrary.wiley.com/doi/full/10.1002/lol2.10173
 # Table SI.3
@@ -343,7 +214,7 @@ doc_box <- chem_50 %>%
 # Create full timeseries
 doc_box_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 doc_box_full <- doc_box_full %>% 
-  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+  dplyr::rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 doc_box_full <- left_join(doc_box_full,doc_box,by="DateTime")
 
 doc_box_full <- doc_box_full %>% 
@@ -410,12 +281,11 @@ for (i in 1:length(doc_inflow_full$DateTime)){
 }
 
 ###############################################################################
-
 ## Determine location of the epi and hypo for each time point
 # Add in thermocline depth information
 thermocline_depth <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 thermocline_depth <- thermocline_depth %>% 
-  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+  dplyr::rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 thermocline_depth <- left_join(thermocline_depth,la_results,by="DateTime")
 
 thermocline_depth <- thermocline_depth %>% 
@@ -474,6 +344,9 @@ doc_wgt <- doc_wgt %>%
 # Separate by year, too
 doc_wgt <- doc_wgt %>% 
   mutate(year = year(DateTime))
+
+## Save for ARIMA modeling
+write.csv(doc_wgt, "./Data/EpiHypo_DOC.csv",row.names=FALSE)
 
 ## Plot vol weighted epi and hypo [DOC] and inflow [DOC]
 vw_epi <- doc_wgt %>% 
@@ -796,7 +669,6 @@ for (j in 1:1000){
 }
 
 ###############################################################################
-
 ## Then calculate DOC internal loading:
 
 # Calculate processing for epi
