@@ -654,63 +654,51 @@ for (i in 2:length(doc_box_full$DateTime)){
 
 doc_entr <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Entrainment for each time point
 
-for (i in 2:length(doc_box_full$DateTime)){
-  if (entr$V1[i]==0){
-    doc_entr[i,] = 0
-  } else if (entr$V1[i]==1.2){
-    doc_entr[i,] = doc_lake_mass[i,,5]
-  }
-}
-
-### SOMETHING IS GOING WRONG HERE?? NOT 'CALCULATING' ENTRAINMENT TERM FOR CERTAIN DEPTHS
-
 ## ID entraiment based on changes in thermocline depth between timepoints
 ## Then determine the mass of DOC that moved between the epi and hypo if the thermocline depth changed
-
 for (i in 2:length(doc_box_full$DateTime)){
-  if(thermocline_depth$epi_bottom_depth_m[i] == thermocline_depth$epi_bottom_depth_m[(i-1)]){
+  if(entr[i,] == 0){
     doc_entr[i,] <- 0
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -7.9){
+  } else if(entr[i,] == "-7.9"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -4.9){
+  } else if(entr[i,] == "-4.9"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.4){
+  } else if(entr[i,] == "-3.4"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.0){
+  } else if(entr[i,] == "-3.0"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.4){
+  } else if(entr[i,] == "-2.4"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.2){
-    doc_entr[i,] <- -doc_lake_mass[i,,3]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.8){
-    doc_entr[i,] <- -doc_lake_mass[i,,6]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.5){
-    doc_entr[i,] <- -doc_lake_mass[i,,2]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.2){
-    doc_entr[i,] <- -doc_lake_mass[i,,5]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.2){
+  } else if(entr[i,] == "-2.2"){
+    doc_entr[i,] <- -1*doc_lake_mass[i,,3]
+  } else if(entr[i,] == "-1.8"){
+    doc_entr[i,] <- -1*doc_lake_mass[i,,6]
+  } else if(entr[i,] == "-1.5"){
+    doc_entr[i,] <- -1*doc_lake_mass[i,,2]
+  } else if(entr[i,] == "-1.2"){
+    doc_entr[i,] <- -1*doc_lake_mass[i,,5]
+  } else if(entr[i,] == "1.2"){
     doc_entr[i,] <- doc_lake_mass[i,,5]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.5){
-    doc_entr[i,] <- sum(doc_lake_mass[i,,2])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.8){
+  } else if(entr[i,] == "1.5"){
+    doc_entr[i,] <- doc_lake_mass[i,,2]
+  } else if(entr[i,] == "1.8"){
     doc_entr[i,] <- doc_lake_mass[i,,6]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 2.2){
+  } else if(entr[i,] == "2.2"){
     doc_entr[i,] <- doc_lake_mass[i,,3]
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.0){
+  } else if(entr[i,] == "3"){
     doc_entr[i,] <- (doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.4){
+  } else if(entr[i,] == "3.4"){
     doc_entr[i,] <- (doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 6.4){
+  } else if(entr[i,] == "6.4"){
     doc_entr[i,] <- (doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.7){
+  } else if(entr[i,] == "-3.7"){
     doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.7){
+  } else if(entr[i,] == "3.7"){
     doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3])
-  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 6.1){
+  } else if(entr[i,] == "6.1"){
     doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
   }
 }
-
 
 ###############################################################################
 ## Then calculate DOC internal loading:
@@ -815,7 +803,7 @@ final_doc_inputs_g <- final_doc_inputs_g %>%
   filter(DateTime >= as.POSIXct("2017-01-01"))
 
 ## Save final model output
-write.csv(final_doc_inputs_g, "./Data/final_doc_inputs.csv",row.names=FALSE)
+write.csv(final_doc_inputs_g, "./Data/26Apr24_final_doc_inputs.csv",row.names=FALSE)
 
 ## Load in final model output (as needed!)
 final_doc_inputs_g <- read.csv("./Data/final_doc_inputs.csv") %>% 
