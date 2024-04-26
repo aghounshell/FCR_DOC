@@ -818,92 +818,92 @@ doc_model_timepoints <- left_join(doc_box,final_doc_inputs_g,"DateTime")
 doc_proc_17 <- ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_g/1000-sd_doc_epi_process_g/1000,ymax=mean_doc_epi_process_g/1000+sd_doc_epi_process_g/1000,fill="Epi"),alpha=0.5)+
-  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_g/1000-sd_doc_hypo_process_g/1000,ymax=mean_doc_hypo_process_g/1000+sd_doc_hypo_process_g/1000,fill="Hypo"),alpha=0.5)+
-  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi"),size=1)+
-  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo"),size=1)+
-  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi"),size=2.2)+
-  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2017-06-01"),as.POSIXct("2017-11-15"))+
-  #ylim(-16,13)+
-  ylab(expression(paste("DOC (kg d"^-1*")")))+
+  ylim(-15,7)+
+  ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2017")+
   theme_classic(base_size=15)+
   guides(fill="none")+
   theme(legend.title=element_blank())
 
-doc_proc_18 <- ggplot(final_doc_inputs_g)+
-  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dotted",color="darkgrey")+
+doc_proc_18 <- ggplot()+
+  geom_vline(xintercept = as.POSIXct("2018-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2018-06-01"),as.POSIXct("2018-11-15"))+
-  ylim(-16,13)+
+  ylim(-8,3)+
   ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2018")+
   theme_classic(base_size=15)+
   guides(fill="none")+
   theme(legend.title=element_blank())
 
-doc_proc_19 <- ggplot(final_doc_inputs_g)+
-  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dotted",color="darkgrey")+
+doc_proc_19 <- ggplot()+
+  geom_vline(xintercept = as.POSIXct("2019-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2019-06-01"),as.POSIXct("2019-11-15"))+
-  ylim(-16,13)+
+  ylim(-7,3)+
   ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2019")+
   theme_classic(base_size=15)+
   guides(fill="none")+
   theme(legend.title=element_blank())
 
-doc_proc_20 <- ggplot(final_doc_inputs_g)+
-  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dotted",color="darkgrey")+
+doc_proc_20 <- ggplot()+
+  geom_vline(xintercept = as.POSIXct("2020-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2020-06-01"),as.POSIXct("2020-11-15"))+
-  ylim(-16,13)+
+  ylim(-5,2)+
   ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2020")+
   theme_classic(base_size=15)+
   guides(fill="none")+
   theme(legend.title=element_blank())
 
-doc_proc_21 <- ggplot(final_doc_inputs_g)+
-  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dotted",color="darkgrey")+
+doc_proc_21 <- ggplot()+
+  geom_vline(xintercept = as.POSIXct("2021-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2021-06-01"),as.POSIXct("2021-11-15"))+
-  ylim(-16,13)+
+  ylim(-3,1)+
   ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2021")+
   theme_classic(base_size=15)+
@@ -914,7 +914,7 @@ ggarrange(doc_proc_17,doc_proc_18,doc_proc_19,doc_proc_20,doc_proc_21,ncol=1,nro
           labels = c("A.", "B.", "C.", "D.","E."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig5_EpiHypo_DOC_Processing.jpg",width=10,height=14,units="in",dpi=320)
+ggsave("./Figs/26Apr24_Fig5_EpiHypo_DOC_Processing.jpg",width=10,height=14,units="in",dpi=320)
 
 ## Plot inputs/outputs to the Epi DOC model
 epi_inflow <- ggplot(final_doc_inputs_g)+
@@ -1000,7 +1000,7 @@ epi_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_Epi_model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/26apr24_SI_Epi_model.jpg",width=9,height=12,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
 hypo_inflow <- ggplot(final_doc_inputs_g)+
@@ -1083,7 +1083,7 @@ hypo_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/26Apr24_SI_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ### Some numbers/calculations for the MS!
@@ -1108,4 +1108,3 @@ final_doc_inputs_g %>%
             med_hypo = median(mean_doc_hypo_process_mgL),
             mean_hypo = mean(mean_doc_hypo_process_mgL),
             sd_hypo = sd(mean_doc_hypo_process_mgL))
-
