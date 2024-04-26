@@ -13,6 +13,11 @@
 ### Cleaned-up for code review and final verison of MS
 ### 12 Mar 2024, A. Hounshell
 
+### Last modified: 12 Apr. 2024, A. Hounshell
+## Use bathy data from EDI
+## Include Epi phyto biomass in Hypo ARIMA models (for 'sinking' phytos!)
+## Updates following DWH code-review (thanks, Dexter!!)
+
 ###############################################################################
 ## Clear workspace
 rm(list = ls())

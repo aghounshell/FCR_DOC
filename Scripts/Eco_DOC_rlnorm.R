@@ -4,7 +4,11 @@
 ### Focusing on: 2017-2021 (5 years of whole-ecosystem manipulations)
 
 ### Last modified: 1 Mar. 2024, A. Hounshell
-### Code review and updating EDI calls
+## Code review and updating EDI calls
+
+### Last modified: 12 Apr. 2024, A. Hounshell
+## Use bathy data from EDI
+## Updates following DWH code-review (thanks, Dexter!!)
 
 ###############################################################################
 # Clear workspace
@@ -38,8 +42,14 @@ la_results <- read.csv("./Data/rev_FCR_results_LA.csv") %>%
 #download.file(inUrl1,infile1,method="curl")
 
 inflow <- read.csv("./Data/Inflow_2013_2021.csv",header=T) %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
-  select(Reservoir:VT_Temp_C)
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+## If flows are 'below detection' (i.e., Flow_Flag = 3 or 13)
+min_flow_cms <- min(inflow$WVWA_Flow_cms,na.rm=TRUE)
+
+inflow <- inflow %>% 
+  mutate(WVWA_Flow_cms = ifelse(WVWA_Flag_Flow %in% c(3,13),min_flow_cms,WVWA_Flow_cms),
+         VT_Flow_cms = ifelse(VT_Flag_Flow %in% c(3,13),min_flow_cms,VT_Flow_cms))
 
 # Use VT inflow to back-fill any missing WVWA inflow (where possible!)
 # Plot WVWA vs. VT inflow - gut check!
@@ -191,22 +201,38 @@ docvinflow_all <- doc_100 %>%
 combine <- ggarrange(docvinflow,docvinflow_all,nrow=1,ncol=2,labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
+summary(doc_lm)
 ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
 
 doc_lm <- lm(DOC_mgL ~ mean, data = doc_100)
-summary(doc_lm)
 
-# Create vector of different volumes for each depth: based on L&O-L 2020 paper
-# https://aslopubs.onlinelibrary.wiley.com/doi/full/10.1002/lol2.10173
-# Table SI.3
-vol_depths <- data.frame("Depth" = c(0.1,1.6,3.8,5.0,6.2,8.0,9.0), "Vol_m3" = c(138486.51,89053.28,59619.35,40197.90,13943.82,14038.52,1954.71))
+# Load in bathymetric data from EDI
+# From EDI: https://portal.edirepository.org/nis/mapbrowse?packageid=edi.1254.1
+# Last downloaded: 12 Apr 2024
+#i nUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/1254/1/f7fa2a06e1229ee75ea39eb586577184" 
+# infile1 <- paste0(getwd(),"/Data/bathy_summary_stats.csv")
+# download.file(inUrl1,infile1,method="curl")
+bathy_data <- read.csv("./Data/bathy_summary_stats.csv", header=T) %>% 
+  filter(Reservoir=="FCR")
+
+vol_depths <- data.frame("Depth" = c(0.1,1.6,3.8,5.0,6.2,8.0,9.0),
+                         "Vol_m3" = c(sum(bathy_data$Volume_layer_L[1:4])/1000, #0-1 m (0.1 m)
+                                     sum(bathy_data$Volume_layer_L[5:8])/1000, #1.3-2.3 m (1.6 m)
+                                     sum(bathy_data$Volume_layer_L[9:14])/1000, #2.6-4.1 m (3.8 m)
+                                     sum(bathy_data$Volume_layer_L[15:19])/1000, #4.4-5.6 m (5 m)
+                                     sum(bathy_data$Volume_layer_L[20:23])/1000, #5.9-6.8 m (6.2 m)
+                                     sum(bathy_data$Volume_layer_L[24:28])/1000, #7.1-8.3 m (8 m)
+                                     sum(bathy_data$Volume_layer_L[29:31])/1000)) #8.7-9.3 m (9 m)
+
+## Save for use in Env_ARIMA
+write.csv(vol_depths, "./Data/vol_depths.csv",row.names=FALSE)
 
 ### Calculate DOC processing for Epi and Hypo -----
 # First, separate by depth and convert to mass for each depth layer
 # Remove time points if there are no observations in the epi, mid, or hypo layers
 doc_box <- chem_50 %>% 
   select(DateTime,Depth_m,DOC_mgL) %>% 
-  pivot_wider(names_from = Depth_m, values_from = DOC_mgL, values_fil = NA, values_fn = mean, names_prefix = "DOC_") %>% 
+  pivot_wider(names_from = Depth_m, values_from = DOC_mgL, values_fill = NA, values_fn = mean, names_prefix = "DOC_") %>% 
   filter(!if_all(c(DOC_0.1, DOC_1.6), is.na)) %>% 
   filter(!if_all(c(DOC_3.8,DOC_5,DOC_6.2), is.na)) %>% 
   filter(!if_all(c(DOC_8,DOC_9),is.na))
@@ -419,7 +445,7 @@ year_box <- doc_wgt %>%
   geom_boxplot(size=0.8,alpha=0.5)+
   scale_fill_manual(breaks=c('Epi','Hypo','Inflow'),values=c("#7EBDC2","#393E41","#F0B670"))+
   xlab("Year")+
-  ylab(expression(paste("VW DOC (mg L"^-1*")")))+
+  ylab(expression(paste("DOC (mg L"^-1*")")))+
   ylim(0,8)+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
@@ -621,52 +647,70 @@ for (j in 1:1000){
 #if Entr is negative, then hypo is getting bigger and epi is getting smaller
 
 # Double check for calculating changes in thermocline depth
-test <- as.data.frame(matrix(data=NA, ncol=1, nrow=length(doc_box_full$DateTime)))
+entr <- as.data.frame(matrix(data=NA, ncol=1, nrow=length(doc_box_full$DateTime)))
 for (i in 2:length(doc_box_full$DateTime)){
-  test[i,1] <- thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[i-1]
+  entr[i,1] <- thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[i-1]
 }
 
 doc_entr <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Entrainment for each time point
 
-for (j in 1:1000){
-  for (i in 2:length(doc_box_full$DateTime)){
-    if(thermocline_depth$epi_bottom_depth_m[i] == thermocline_depth$epi_bottom_depth_m[(i-1)]){
-      doc_entr[i,j] <- 0
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -7.9){
-      doc_entr[i,j] <- (-sum(doc_lake_mass[i,j,2:6]))
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -4.9){
-      doc_entr[i,j] <- (-sum(doc_lake_mass[i,j,2:4]))
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.4){
-      doc_entr[i,j] <- (-sum(doc_lake_mass[i,j,3:4]))
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.0){
-      doc_entr[i,j] <- (-sum(doc_lake_mass[i,j,5:6]))
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.4){
-      doc_entr[i,j] <- (-sum(doc_lake_mass[i,j,4:5]))
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.2){
-      doc_entr[i,j] <- -doc_lake_mass[i,j,3]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.8){
-      doc_entr[i,j] <- -doc_lake_mass[i,j,6]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.5){
-      doc_entr[i,j] <- -doc_lake_mass[i,j,2]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.2){
-      doc_entr[i,j] <- -doc_lake_mass[i,j,5]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.2){
-      doc_entr[i,j] <- doc_lake_mass[i,j,5]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.5){
-      doc_entr[i,j] <- doc_lake_mass[i,j,2]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.8){
-      doc_entr[i,j] <- doc_lake_mass[i,j,6]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 2.2){
-      doc_entr[i,j] <- doc_lake_mass[i,j,3]
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.0){
-      doc_entr[i,j] <- sum(doc_lake_mass[i,j,5:6])
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.4){
-      doc_entr[i,j] <- sum(doc_lake_mass[i,j,3:4])
-    } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 6.4){
-      doc_entr[i,j] <- sum(doc_lake_mass[i,j,3:6])
-    }
+for (i in 2:length(doc_box_full$DateTime)){
+  if (entr$V1[i]==0){
+    doc_entr[i,] = 0
+  } else if (entr$V1[i]==1.2){
+    doc_entr[i,] = doc_lake_mass[i,,5]
   }
 }
+
+### SOMETHING IS GOING WRONG HERE?? NOT 'CALCULATING' ENTRAINMENT TERM FOR CERTAIN DEPTHS
+
+## ID entraiment based on changes in thermocline depth between timepoints
+## Then determine the mass of DOC that moved between the epi and hypo if the thermocline depth changed
+
+for (i in 2:length(doc_box_full$DateTime)){
+  if(thermocline_depth$epi_bottom_depth_m[i] == thermocline_depth$epi_bottom_depth_m[(i-1)]){
+    doc_entr[i,] <- 0
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -7.9){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -4.9){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.4){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.0){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.4){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -2.2){
+    doc_entr[i,] <- -doc_lake_mass[i,,3]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.8){
+    doc_entr[i,] <- -doc_lake_mass[i,,6]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.5){
+    doc_entr[i,] <- -doc_lake_mass[i,,2]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -1.2){
+    doc_entr[i,] <- -doc_lake_mass[i,,5]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.2){
+    doc_entr[i,] <- doc_lake_mass[i,,5]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.5){
+    doc_entr[i,] <- sum(doc_lake_mass[i,,2])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 1.8){
+    doc_entr[i,] <- doc_lake_mass[i,,6]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 2.2){
+    doc_entr[i,] <- doc_lake_mass[i,,3]
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.0){
+    doc_entr[i,] <- (doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.4){
+    doc_entr[i,] <- (doc_lake_mass[i,,3]+doc_lake_mass[i,,4])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 6.4){
+    doc_entr[i,] <- (doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5]+doc_lake_mass[i,,6])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == -3.7){
+    doc_entr[i,] <- -1*(doc_lake_mass[i,,2]+doc_lake_mass[i,,3])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 3.7){
+    doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3])
+  } else if(thermocline_depth$epi_bottom_depth_m[i]-thermocline_depth$epi_bottom_depth_m[(i-1)] == 6.1){
+    doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
+  }
+}
+
 
 ###############################################################################
 ## Then calculate DOC internal loading:
@@ -777,23 +821,26 @@ write.csv(final_doc_inputs_g, "./Data/final_doc_inputs.csv",row.names=FALSE)
 final_doc_inputs_g <- read.csv("./Data/final_doc_inputs.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
+## Constrain to sampling days
+doc_model_timepoints <- left_join(doc_box,final_doc_inputs_g,"DateTime")
+
 ###############################################################################
 ## Let's make some plots!
 ## Plot epi and hypo processing
-doc_proc_17 <- ggplot(final_doc_inputs_g)+
+doc_proc_17 <- ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dotted",color="darkgrey")+
   geom_hline(yintercept=0,linetype="dashed",color="darkgrey")+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_mgL-sd_doc_epi_process_mgL,ymax=mean_doc_epi_process_mgL+sd_doc_epi_process_mgL,fill="Epi"),alpha=0.5)+
-  geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_mgL-sd_doc_hypo_process_mgL,ymax=mean_doc_hypo_process_mgL+sd_doc_hypo_process_mgL,fill="Hypo"),alpha=0.5)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=1)+
-  geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_mgL,color="Epi"),size=2.2)+
-  geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_mgL,color="Hypo"),size=2.2)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_epi_process_g/1000-sd_doc_epi_process_g/1000,ymax=mean_doc_epi_process_g/1000+sd_doc_epi_process_g/1000,fill="Epi"),alpha=0.5)+
+  geom_ribbon(final_doc_inputs_g,mapping=aes(x=DateTime,ymin=mean_doc_hypo_process_g/1000-sd_doc_hypo_process_g/1000,ymax=mean_doc_hypo_process_g/1000+sd_doc_hypo_process_g/1000,fill="Hypo"),alpha=0.5)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi"),size=1)+
+  geom_line(final_doc_inputs_g,mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo"),size=1)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi"),size=2.2)+
+  geom_point(doc_model_timepoints,mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo"),size=2.2)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2017-06-01"),as.POSIXct("2017-11-15"))+
-  ylim(-2,0.7)+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  #ylim(-16,13)+
+  ylab(expression(paste("DOC (kg d"^-1*")")))+
   xlab("2017")+
   theme_classic(base_size=15)+
   guides(fill="none")+
@@ -811,8 +858,8 @@ doc_proc_18 <- ggplot(final_doc_inputs_g)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2018-06-01"),as.POSIXct("2018-11-15"))+
-  ylim(-0.7,0.7)+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  ylim(-16,13)+
+  ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2018")+
   theme_classic(base_size=15)+
   guides(fill="none")+
@@ -830,8 +877,8 @@ doc_proc_19 <- ggplot(final_doc_inputs_g)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2019-06-01"),as.POSIXct("2019-11-15"))+
-  ylim(-0.7,0.7)+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  ylim(-16,13)+
+  ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2019")+
   theme_classic(base_size=15)+
   guides(fill="none")+
@@ -849,8 +896,8 @@ doc_proc_20 <- ggplot(final_doc_inputs_g)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2020-06-01"),as.POSIXct("2020-11-15"))+
-  ylim(-0.7,0.7)+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  ylim(-16,13)+
+  ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2020")+
   theme_classic(base_size=15)+
   guides(fill="none")+
@@ -868,8 +915,8 @@ doc_proc_21 <- ggplot(final_doc_inputs_g)+
   scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2021-06-01"),as.POSIXct("2021-11-15"))+
-  ylim(-0.7,0.7)+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  ylim(-16,13)+
+  ylab(expression(paste("DOC (mg L"^-1*" d"^-1*")")))+
   xlab("2021")+
   theme_classic(base_size=15)+
   guides(fill="none")+
@@ -879,7 +926,7 @@ ggarrange(doc_proc_17,doc_proc_18,doc_proc_19,doc_proc_20,doc_proc_21,ncol=1,nro
           labels = c("A.", "B.", "C.", "D.","E."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig5_EpiHypo_DOC_Processing.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig5_EpiHypo_DOC_Processing.jpg",width=10,height=14,units="in",dpi=320)
 
 ## Plot inputs/outputs to the Epi DOC model
 epi_inflow <- ggplot(final_doc_inputs_g)+
@@ -894,7 +941,7 @@ epi_inflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Inflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
-  ylab(expression(paste("Inflow (kg d"^-1*")")))+
+  ylab(expression(paste("External DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Inflow","Hypo Inflow"), values=c("#F0B670","#393E41"))+
   scale_fill_manual(breaks=c("Inflow","Hypo Inflow"),values=c("#F0B670","#393E41"))+
@@ -912,7 +959,7 @@ epi_outflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_epi_outflow_g/1000)-(sd_doc_epi_outflow_g/1000),ymax=(mean_doc_epi_outflow_g/1000)+(sd_doc_epi_outflow_g/1000),fill="Epi Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
-  ylab(expression(paste("Outflow (kg d"^-1*")")))+
+  ylab(expression(paste("DOC Outflow (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi Outflow"), values=c("#7EBDC2"))+
   scale_fill_manual(breaks=c("Epi Outflow"),values=c("#7EBDC2"))+
@@ -934,7 +981,7 @@ epi_change <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=-(mean_doc_entr_g-sd_doc_entr_g)/1000,ymin=-(mean_doc_entr_g+sd_doc_entr_g)/1000,fill="Entr"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=-mean_doc_entr_g/1000,color="Entr"))+
   geom_point(mapping=aes(x=DateTime,y=-mean_doc_entr_g/1000,color="Entr"))+
-  ylab(expression(paste("DOC (kg d"^-1*")")))+
+  ylab(expression(paste("DOC/dt (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi DOC/dt","Entr"), values=c("#7EBDC2","#E7804B"))+
   scale_fill_manual(breaks=c("Epi DOC/dt","Entr"),values=c("#7EBDC2","#E7804B"))+
@@ -953,7 +1000,7 @@ epi_internal <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_g/1000-sd_doc_epi_process_g/1000,ymax=mean_doc_epi_process_g/1000+sd_doc_epi_process_g/1000,fill="Epi Internal"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi Internal"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi Internal"))+
-  ylab(expression(paste("DOC (kg d"^-1*")")))+
+  ylab(expression(paste("Internal DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi Internal"), values=c("#7EBDC2"))+
   scale_fill_manual(breaks=c("Epi Internal"),values=c("#7EBDC2"))+
@@ -977,7 +1024,7 @@ hypo_inflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=((mean_doc_inflow_g*0.26/1000)-(sd_doc_inflow_g*0.26/1000)),ymax=((mean_doc_inflow_g*0.26/1000)+(sd_doc_inflow_g*0.26/1000)),fill="Inflow"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
-  ylab(expression(paste("Inflow (kg d"^-1*")")))+
+  ylab(expression(paste("External DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Inflow"), values=c("#F0B670"))+
   scale_fill_manual(breaks=c("Inflow"),values=c("#F0B670"))+
@@ -995,7 +1042,7 @@ hypo_outflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
-  ylab(expression(paste("Hypo Outflow (kg d"^-1*")")))+
+  ylab(expression(paste("DOC Outflow (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo Outflow"), values=c("#393E41"))+
   scale_fill_manual(breaks=c("Hypo Outflow"),values=c("#393E41"))+
@@ -1017,7 +1064,7 @@ hypo_change <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=(mean_doc_entr_g-sd_doc_entr_g)/1000,ymin=(mean_doc_entr_g+sd_doc_entr_g)/1000,fill="Entr"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_entr_g/1000,color="Entr"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_entr_g/1000,color="Entr"))+
-  ylab(expression(paste("DOC (kg d"^-1*")")))+
+  ylab(expression(paste("DOC/dt (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo DOC/dt","Entr"), values=c("#393E41","#E7804B"))+
   scale_fill_manual(breaks=c("Hypo DOC/dt","Entr"),values=c("#393E41","#E7804B"))+
@@ -1036,7 +1083,7 @@ hypo_internal <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=(mean_doc_hypo_process_g-sd_doc_hypo_process_g)/1000,ymin=(mean_doc_hypo_process_g+sd_doc_hypo_process_g)/1000,fill="Hypo Internal"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo Internal"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo Internal"))+
-  ylab(expression(paste("DOC (kg d"^-1*")")))+
+  ylab(expression(paste("Internal DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo Internal"), values=c("#393E41"))+
   scale_fill_manual(breaks=c("Hypo Internal"),values=c("#393E41"))+
@@ -1051,3 +1098,26 @@ ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,label
 ggsave("./Figs/SI_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
+### Some numbers/calculations for the MS!
+## Min, Max, Mean/SD for DOC internal sources
+## Constrain to June-Turnover
+## Epi:
+final_doc_inputs_g %>% 
+  mutate(month = month(DateTime)) %>% 
+  filter(month %in% c(6,7,8,9,10)) %>% 
+  summarise(min_epi = min(mean_doc_epi_process_mgL),
+            max_epi = max(mean_doc_epi_process_mgL),
+            med_epi = median(mean_doc_epi_process_mgL),
+            mean_epi = mean(mean_doc_epi_process_mgL),
+            sd_epi = sd(mean_doc_epi_process_mgL))
+
+## Hypo:
+final_doc_inputs_g %>% 
+  mutate(month = month(DateTime)) %>% 
+  filter(month %in% c(6,7,8,9,10)) %>% 
+  summarise(min_hypo = min(mean_doc_hypo_process_mgL),
+            max_hypo = max(mean_doc_hypo_process_mgL),
+            med_hypo = median(mean_doc_hypo_process_mgL),
+            mean_hypo = mean(mean_doc_hypo_process_mgL),
+            sd_hypo = sd(mean_doc_hypo_process_mgL))
+
