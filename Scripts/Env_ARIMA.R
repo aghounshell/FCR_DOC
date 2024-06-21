@@ -103,7 +103,7 @@ doc_mgL %>%
 
 ###############################################################################
 ## Add in DOC processing - calculated from Eco_DOC_rlnorm.R
-doc_processing <- read_csv("./Data/final_doc_inputs.csv") %>% 
+doc_processing <- read_csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 doc_proc_mgL <- doc_processing %>% 
@@ -119,7 +119,7 @@ doc_proc_mgL <- doc_proc_mgL %>%
   mutate(year = year(DateTime),
          month = month(DateTime))
 
-doc_proc_mgL %>% 
+out <- doc_proc_mgL %>% 
   filter(month %in% c(6,7,8,9,10)) %>% 
   ggplot(mapping=aes(x=as.factor(year),y=DOC_processing_mgL,fill=Depth))+
   geom_hline(yintercept = 0, linetype="dashed")+
@@ -129,7 +129,21 @@ doc_proc_mgL %>%
   ylab(expression(paste("DOC Internal Loading (mg L"^-1*")")))+
   theme_classic(base_size = 15)
 
-ggsave("./Figs/SI_DOC_Proc_Year_Boxplot.png",dpi=800,width=7,height=4)
+no_out <- doc_proc_mgL %>% 
+  filter(month %in% c(6,7,8,9,10)) %>% 
+  ggplot(mapping=aes(x=as.factor(year),y=DOC_processing_mgL,fill=Depth))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_boxplot(size=0.8,alpha=0.5,outlier.shape=NA)+
+  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
+  ylim(-0.5,0.5)+
+  xlab("")+
+  ylab(expression(paste("DOC Internal Loading (mg L"^-1*")")))+
+  theme_classic(base_size = 15)
+
+ggarrange(out,no_out,nrow=1,ncol=2,labels = c("A.", "B."),
+          font.label=list(face="plain",size=15),common.legend = TRUE)
+
+ggsave("./Figs/26Apr24_SI_DOC_Proc_Year_Boxplot.png",dpi=800,width=7,height=4)
 
 ###############################################################################
 ## Load in CTD + YSI data - temp, Sal, DO
@@ -145,10 +159,9 @@ casts <- read.csv("./Data/merged_YSI_CTD.csv") %>%
 ### Create a dataframe for cast parameters at each sampling depth
 depths <- c(0.1, 1.6, 3.8, 5.0, 6.2, 8.0, 9.0) 
 
-# Create vector of different volumes for each depth: based on L&O-L 2020 paper
-# https://aslopubs.onlinelibrary.wiley.com/doi/full/10.1002/lol2.10173
+# Create vector of different volumes for each depth: from Eco_DOC_rlnorm.R
 # Table SI.3
-vol_depths <- data.frame("Depth" = c(0.1,1.6,3.8,5.0,6.2,8.0,9.0), "Vol_m3" = c(138486.51,89053.28,59619.35,40197.90,13943.82,14038.52,1954.71))
+vol_depths <- read.csv("./Data/vol_depths.csv")
 
 # Initialize an empty matrix with the correct number of rows and columns 
 temp <- matrix(data=NA, ncol=ncol(casts), nrow=length(depths)) #of cols in CTD data, and then nrows = # of layers produced
@@ -685,6 +698,13 @@ arima_epi <- arima_epi %>%
 
 arima_hypo <- left_join(arima_hypo,final_thermo,by="DateTime")
 
+## Add Epi Chla to Hypo (to represent sinking phytos)
+epi_chla <- arima_epi %>% 
+  select(DateTime,VW_Chla_ugL) %>% 
+  rename(Epi_Chla_ugL = VW_Chla_ugL)
+
+arima_hypo <- left_join(arima_hypo,epi_chla,by="DateTime")
+
 ## Calculate stats for env parameters - limited to summer stratified period (May-Oct)
 epi_stats <- arima_epi %>% 
   mutate(month = month(DateTime)) %>% 
@@ -714,10 +734,10 @@ chart.Correlation(arima_epi[,3:11],histogram = TRUE,method=c("pearson"))
 # No correlations!
 
 # Hypo
-hypo_cor = as.data.frame(cor(arima_hypo[,3:12],use = "complete.obs"),method=c("pearson"))
+hypo_cor = as.data.frame(cor(arima_hypo[,3:13],use = "complete.obs"),method=c("pearson"))
 write_csv(hypo_cor, "./Figs/hypo_cor.csv")
 
-chart.Correlation(arima_hypo[,3:12],histogram = TRUE,method=c("pearson"))
+chart.Correlation(arima_hypo[,3:13],histogram = TRUE,method=c("pearson"))
 # No correlations!
 
 ###############################################################################
@@ -759,7 +779,7 @@ arima_epi_scale <- arima_epi %>%
 arima_epi_scale[,3:11] <- scale(arima_epi_scale[,3:11])
 
 # Hypo
-for (i in 3:12){
+for (i in 3:13){
   print(colnames(arima_hypo)[i])
   var <- arima_hypo[,i]
   hist(as.matrix(var), main = colnames(arima_hypo)[i])
@@ -775,7 +795,7 @@ for (i in 3:12){
   hist(as.matrix(var), main = c("sq",colnames(arima_hypo)[i]))
 }
 # Nothing: DOC, DO, SW Radiation, Thermo, Anoxia_time
-# Log: Chla, Rain, Inflow
+# Log: Chla_hypo, Rain, Inflow, Chla_epi
 # Cube root: DOC_processing
 # sqrt: Temp
 
@@ -785,9 +805,10 @@ arima_hypo_scale <- arima_hypo %>%
          VW_Chla_ugL = log(VW_Chla_ugL),
          rain_tot_mm = log(rain_tot_mm),
          Inflow_m3s = log(Inflow_m3s),
-         VW_Temp_C = sqrt(VW_Temp_C))
+         VW_Temp_C = sqrt(VW_Temp_C),
+         Epi_Chla_ugL = log(Epi_Chla_ugL))
 
-arima_hypo_scale[,3:12] <- scale(arima_hypo_scale[,3:12])
+arima_hypo_scale[,3:13] <- scale(arima_hypo_scale[,3:13])
 
 ###############################################################################
 
@@ -890,7 +911,7 @@ for (i in 1:nrow(good)){
 # Hypo
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10:12) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes)
+cols <- c(5:7,10:13) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes)
 sub.final <- NULL
 final <- NULL
 
@@ -943,8 +964,8 @@ final <- distinct(final)
 best <- final %>%
   slice(which.min(AICc))
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,5)[,2]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,5)[,2] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,4)[,19]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,4)[,19] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
@@ -1072,7 +1093,7 @@ for (i in 1:nrow(good)){
 ## Hypo DOC processing
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10:12) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes)
+cols <- c(5:7,10:13) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes)
 sub.final <- NULL
 final <- NULL
 
@@ -1125,8 +1146,8 @@ final <- distinct(final)
 best <- final %>%
   slice(which.min(AICc))
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,13]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,3)[,13] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,25]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,3)[,25] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
