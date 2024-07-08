@@ -1,10 +1,14 @@
-# Script to calculate thermocline depth with rLakeAnalyzer
-# A Hounshell, 30 May 2021
-
-# Updated on 12 Aug 2022 to include 2021 data
-
 ###############################################################################
 
+### Script to calculate thermocline depth with rLakeAnalyzer
+### A Hounshell, 30 May 2021
+
+### Updated on 12 Aug 2022 to include 2021 data
+
+### Updated: 8 July 2024, A. Hounshell
+## Following comments from DWH code review (thanks, DWH!)
+
+###############################################################################
 # Clear workspace
 rm(list = ls())
 
@@ -12,18 +16,24 @@ rm(list = ls())
 wd <- getwd()
 setwd(wd)
 
-# Load libraries
-pacman::p_load(tidyverse,ggplot2,ggpubr,lubridate,zoo)
+# Create data folder within directory structure
+if(file.exists("Data")==FALSE){
+  dir.create(file.path(wd, "Data"))
+}
 
-#devtools::install_github("GLEON/rLakeAnalyzer")
+# Load libraries
+pacman::p_load(tidyverse,ggplot2,ggpubr,lubridate,zoo,rLakeAnalyzer)
+
+###############################################################################
 
 # CTD and YSI casts - combine together for most complete time-period
-#need to import CTD observations from EDI
-#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/200/11/d771f5e9956304424c3bc0a39298a5ce" 
-#infile1 <- paste0(getwd(),"/CTD_final_2013_2020.csv")
-#download.file(inUrl1,infile1,method="curl")
 
-ctd <- read.csv('./Data/CTD_2013_2021.csv') %>% #read in observed CTD data, which has multiple casts on the same day (problematic for comparison)
+# Download CTD data from EDI (2013-2021): https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=200&revision=12
+# inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/200/12/0a62d1946e8d9a511bc1404e69e59b8c" 
+# infile1 <- paste0(getwd(),"./Data/CTD_final_2013_2021.csv")
+# download.file(inUrl1,infile1,method="curl")
+
+ctd <- read.csv('./Data/CTD_final_2013_2021.csv') %>% #read in observed CTD data, which has multiple casts on the same day (problematic for comparison)
   filter(Reservoir=="FCR") %>%
   mutate(Date = as.POSIXct(strptime(Date, "%Y-%m-%d", tz="EST"))) %>% 
   select(Reservoir:PAR_umolm2s)
@@ -32,10 +42,10 @@ ctd_50 <- ctd %>%
   filter(Site==50) %>% 
   dplyr::rename(time = Date)
 
-# Import YSI observations from EDI
-#inUrl1 <- "https://pasta.lternet.edu/package/data/eml/edi/198/8/07ba1430528e01041435afc4c65fbeb6"
-#infile1 <- paste0(getwd(),"/YSI_PAR_profiles_2013-2020.csv")
-#download.file(inUrl1,infile1,method="curl")
+# Import YSI observations from EDI: https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=198&revision=9
+# inUrl1 <- "https://pasta.lternet.edu/package/data/eml/edi/198/9/b3bd353312f9e37ca392e2a5315cc9da"
+# infile1 <- paste0(getwd(),"./Data/YSI_PAR_profiles_2013-2021.csv")
+# download.file(inUrl1,infile1,method="curl")
 
 ysi <- read_csv('./Data/YSI_PAR_profiles_2013-2021.csv') %>% 
   filter(Reservoir=="FCR") %>% 
@@ -66,7 +76,8 @@ fcr_dates <- merge(ysi_date_list, ctd_date_list, by="time", all.x=TRUE, all.y=TR
 ### Merge data CTD and YSI datasets for FCR
 fcr_merge <- merge(ctd_50, ysi_50, by="time", all.x=TRUE, all.y=TRUE)
 
-# Find where there are Na values in the CTD data: need to do it for each column
+# Find where there are Na values in the CTD data, If there are missing CTD
+# values, replacewith YSI values: need to do it for each column
 ctd_fcr_na <- is.na(fcr_merge$Depth_m.x)
 fcr_merge$Depth_m.x[ctd_fcr_na] <- fcr_merge$Depth_m.y[ctd_fcr_na]
 
@@ -198,7 +209,7 @@ write.table(fcr_new, "./Data/fcr.wtr", sep='\t', row.names=FALSE)
 pacman::p_load(rLakeAnalyzer)
 
 ## Move fcr.wtr to rLakeAnalyzer folder and setpath
-wtr.path <- "C:/Users/ahoun/Documents/R/win-library/4.0/rLakeAnalyzer/extdata/fcr.wtr"
+wtr.path <- file.path(wd,"Data/fcr.wtr")
 
 fcr_temp = load.ts(wtr.path)
 

@@ -10,6 +10,10 @@
 ## Use bathy data from EDI
 ## Updates following DWH code-review (thanks, Dexter!!)
 
+### Modified: 8 Jul. 2024, A. Hounshell
+## Save inputs for Sensitivity Test (p)
+## Updated for HLW code-review (thanks, Heather!!)
+
 ###############################################################################
 # Clear workspace
 rm(list = ls())
@@ -84,7 +88,7 @@ inflow_daily_full <- left_join(inflow_daily_full, inflow_daily,by="DateTime")
 inflow_daily_full <- inflow_daily_full %>% 
   mutate(total_sd = sqrt((sd^2)+((mean(inflow$flow_diff,na.rm=TRUE))^2)))
 
-# If total sd is NA for that day, then assume the SD is equal to the mean SD for the entire studyp period
+# If total sd is NA for that day, then assume the SD is equal to the mean SD for the entire study period
 inflow_daily_full <- inflow_daily_full %>% 
   mutate(total_sd = ifelse(is.na(total_sd),mean(inflow_daily_full$total_sd,na.rm=TRUE),sd))
 
@@ -506,6 +510,8 @@ for (j in 1:1000){
   }
 }
 
+write.csv(doc_inflow_mass, "./Data/doc_inflow_mass.csv",row.names=FALSE)
+
 ### Calculate outflow from epi and hypo ###
 # Epi outflow = inflow * [DOC] at 0.1 m = g/d
 doc_epi_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
@@ -515,6 +521,8 @@ for (j in 1:1000){
     doc_epi_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,1]*60*60*24
   }
 }
+
+write.csv(doc_epi_mass_outflow, "./Data/doc_epi_mass_outflow.csv",row.names=FALSE)
 
 # 'Outflow' to Epi from Hypo: concentration * outflow = mass/day
 doc_hypo_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Mass of DOC outflow from the hypo
@@ -536,6 +544,8 @@ for (j in 1:1000){
     }
   }
 }
+
+write.csv(doc_hypo_mass_outflow, "./Data/doc_hypo_mass_outflow.csv",row.names=FALSE)
 
 ### Calculate [DOC]/dt for each time point ###
 
@@ -602,6 +612,8 @@ for (j in 1:1000){
   }
 }
 
+write.csv(epi_vol, "./Data/epi_vol.csv",row.names=FALSE)
+
 hypo_vol <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Volume of hypo for each time point
 
 for (j in 1:1000){
@@ -622,6 +634,8 @@ for (j in 1:1000){
   }
 }
 
+write.csv(hypo_vol, "./Data/hypo_vol.csv",row.names=FALSE)
+
 ## Now calculate DOC/dt for epi and hypo for each timepoint
 doc_dt_epi <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Change in DOC/dt for the epi
 
@@ -631,6 +645,8 @@ for (j in 1:1000){
   }
 }
 
+write.csv(doc_dt_epi, "./Data/doc_dt_epi.csv",row.names=FALSE)
+
 doc_dt_hypo <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Change in DOC/dt for the hypo
 
 for (j in 1:1000){
@@ -638,6 +654,8 @@ for (j in 1:1000){
     doc_dt_hypo[i+1,j] <- (doc_hypo_mass[i+1,j]-doc_hypo_mass[i,j])
   }
 }
+
+write.csv(doc_dt_hypo, "./Data/doc_dt_hypo.csv",row.names=FALSE)
 
 ### Calculate entrainment from hypo to epi for each time point ###
 # Loosely following FCR_DOCModel_edited_19May17 from Carey et al. 2018
@@ -699,6 +717,8 @@ for (i in 2:length(doc_box_full$DateTime)){
     doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
   }
 }
+
+write.csv(doc_entr, "./Data/doc_entr.csv",row.names=FALSE)
 
 ###############################################################################
 ## Then calculate DOC internal loading:
@@ -806,7 +826,7 @@ final_doc_inputs_g <- final_doc_inputs_g %>%
 write.csv(final_doc_inputs_g, "./Data/26Apr24_final_doc_inputs.csv",row.names=FALSE)
 
 ## Load in final model output (as needed!)
-final_doc_inputs_g <- read.csv("./Data/final_doc_inputs.csv") %>% 
+final_doc_inputs_g <- read.csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 ## Constrain to sampling days
