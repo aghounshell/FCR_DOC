@@ -195,7 +195,7 @@ for (i in 1:length(dates)){
   super_final <- rbind.fill.matrix(super_final,final)
 }
 
-detach(package:plyr)#to prevent issues with dplyr vs plyr not playing well together!
+detach(package:plyr) # to prevent issues with dplyr vs plyr not playing well together!
 
 # Now need to clean up the data frame and make all factors numeric
 casts_depths <- as.data.frame(super_final) %>%
@@ -880,12 +880,12 @@ best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.
 best.fit
 hist(resid(best.fit))
 accuracy(best.fit)
-hist(unlist(arima_epi_scale[,1]))
+hist(unlist(arima_epi_scale[,3]))
 plot_fit <- as.numeric(fitted(best.fit))
 plot_x <- as.numeric(unlist(arima_epi_scale[,1]))
 plot(plot_x,plot_fit)
 abline(a = 0, b = 1)
-median((unlist(arima_epi_scale[,1])-unlist(fitted(best.fit))), na.rm = TRUE)
+median((unlist(arima_epi_scale[,3])-unlist(fitted(best.fit))), na.rm = TRUE)
 
 good <- final %>%
   filter(AICc >= as.numeric(best$AICc[1]) & AICc <= (as.numeric(best$AICc[1]) + 2)) %>%
@@ -971,12 +971,12 @@ best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max
 best.fit
 hist(resid(best.fit))
 accuracy(best.fit)
-hist(unlist(arima_hypo_scale[,1]))
+hist(unlist(arima_hypo_scale[,3]))
 plot_fit <- as.numeric(fitted(best.fit))
 plot_x <- as.numeric(unlist(arima_hypo_scale[,1]))
 plot(plot_x,plot_fit)
 abline(a = 0, b = 1)
-median((unlist(arima_hypo_scale[,1])-unlist(fitted(best.fit))), na.rm = TRUE)
+median((unlist(arima_hypo_scale[,3])-unlist(fitted(best.fit))), na.rm = TRUE)
 
 good <- final %>%
   filter(AICc >= as.numeric(best$AICc[1]) & AICc <= (as.numeric(best$AICc[1]) + 2)) %>%
@@ -1062,12 +1062,12 @@ best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.
 best.fit
 hist(resid(best.fit))
 accuracy(best.fit)
-hist(unlist(arima_epi_scale[,1]))
+hist(unlist(arima_epi_scale[,4]))
 plot_fit <- as.numeric(fitted(best.fit))
 plot_x <- as.numeric(unlist(arima_epi_scale[,1]))
 plot(plot_x,plot_fit)
 abline(a = 0, b = 1)
-median((unlist(arima_epi_scale[,1])-unlist(fitted(best.fit))), na.rm = TRUE)
+median((unlist(arima_epi_scale[,4])-unlist(fitted(best.fit))), na.rm = TRUE)
 
 good <- final %>%
   filter(AICc >= as.numeric(best$AICc[1]) & AICc <= (as.numeric(best$AICc[1]) + 2)) %>%
@@ -1153,12 +1153,12 @@ best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max
 best.fit
 hist(resid(best.fit))
 accuracy(best.fit)
-hist(unlist(arima_hypo_scale[,1]))
+hist(unlist(arima_hypo_scale[,4]))
 plot_fit <- as.numeric(fitted(best.fit))
 plot_x <- as.numeric(unlist(arima_hypo_scale[,1]))
 plot(plot_x,plot_fit)
 abline(a = 0, b = 1)
-median((unlist(arima_hypo_scale[,1])-unlist(fitted(best.fit))), na.rm = TRUE)
+median((unlist(arima_hypo_scale[,4])-unlist(fitted(best.fit))), na.rm = TRUE)
 
 good <- final %>%
   filter(AICc >= as.numeric(best$AICc[1]) & AICc <= (as.numeric(best$AICc[1]) + 2)) %>%
