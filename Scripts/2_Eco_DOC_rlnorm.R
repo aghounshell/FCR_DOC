@@ -1128,3 +1128,16 @@ final_doc_inputs_g %>%
             med_hypo = median(mean_doc_hypo_process_mgL),
             mean_hypo = mean(mean_doc_hypo_process_mgL),
             sd_hypo = sd(mean_doc_hypo_process_mgL))
+
+###############################################################################
+### Additional visualizations
+final_doc_inputs_g <- final_doc_inputs_g %>% 
+  mutate(year = year(DateTime),
+         month = month(DateTime))
+
+final_doc_inputs_g %>% 
+  filter(month %in% c(6,7,8,9,10)) %>% 
+  ggplot()+
+  geom_density(mapping=aes(x=mean_doc_epi_process_mgL,color="Epi"))+
+  geom_density(mapping=aes(x=mean_doc_hypo_process_mgL,color="Hypo"))
+
