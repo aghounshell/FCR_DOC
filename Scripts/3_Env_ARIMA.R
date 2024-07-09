@@ -63,31 +63,6 @@ thermo %>%
   filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(4,5,6,7,8,9)) %>% 
   summarise_all(median,na.rm=TRUE)
 
-## Plot timeseries of thermocline depth for SI
-thermo %>% 
-  drop_na(thermo.depth) %>% 
-  ggplot(mapping=aes(x=DateTime,y=-thermo.depth))+
-  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
-  geom_hline(yintercept = -0.1, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -1.6, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -3.8, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -5, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -6.2, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -8, linetype="dotted",color="darkgrey")+
-  geom_hline(yintercept = -9, linetype="dotted",color="darkgrey")+
-  geom_line(size=1)+
-  geom_point(size=2)+
-  ylab("Thermocline depth (m)")+
-  xlab("")+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  theme_classic(base_size = 15)
-
-ggsave("./Figs/SI_ThermoDepth.png",dpi=800,width=9,height=4)
-
 ###############################################################################
 ## Load in Epi and Hypo V.W. DOC concentrations - from Eco_DOC_rlnorm.R
 doc_mgL <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
@@ -126,7 +101,7 @@ out <- doc_proc_mgL %>%
   geom_boxplot(size=0.8,alpha=0.5)+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlab("")+
-  ylab(expression(paste("DOC Internal Loading (mg L"^-1*")")))+
+  ylab(expression(atop("DOC Internal Sources", paste("(mg L"^-1*" d"^-1*")"))))+
   theme_classic(base_size = 15)
 
 no_out <- doc_proc_mgL %>% 
@@ -135,15 +110,15 @@ no_out <- doc_proc_mgL %>%
   geom_hline(yintercept = 0, linetype="dashed")+
   geom_boxplot(size=0.8,alpha=0.5,outlier.shape=NA)+
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  ylim(-0.5,0.5)+
+  coord_cartesian(ylim = c(-0.5, 0.5))+
   xlab("")+
-  ylab(expression(paste("DOC Internal Loading (mg L"^-1*")")))+
+  ylab(expression(atop("DOC Internal Sources", paste("(mg L"^-1*" d"^-1*")"))))+
   theme_classic(base_size = 15)
 
 ggarrange(out,no_out,nrow=1,ncol=2,labels = c("A.", "B."),
           font.label=list(face="plain",size=15),common.legend = TRUE)
 
-ggsave("./Figs/26Apr24_SI_DOC_Proc_Year_Boxplot.png",dpi=800,width=7,height=4)
+ggsave("./Figs/26Apr24_SI_DOC_Proc_Year_Boxplot.png",dpi=800,width=8,height=4)
 
 ###############################################################################
 ## Load in CTD + YSI data - temp, Sal, DO
@@ -250,7 +225,7 @@ temp_plot <- temp_c %>%
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
-  ylab(expression(V.W.~Temp~(C^o)))+
+  ylab(expression(VW~Temp~(C^o)))+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
@@ -307,7 +282,7 @@ do_plot <- do_pSat %>%
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
-  ylab("V.W. DO %Sat")+
+  ylab("VW DO %Sat")+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
@@ -349,29 +324,6 @@ do_mgL <- do_mgL %>%
 # 2020-07-08; 413
 do_mgL <- do_mgL[-c(413,479),]
 
-do_mgL %>%  
-  drop_na(epi_DO,hypo_DO) %>% 
-  ggplot()+
-  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
-  geom_line(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=2)+
-  geom_line(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=2)+
-  scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  xlab("") + 
-  ylab(expression(V.W.~DO~(mg~L^-1)))+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-## Save %DO Plot for SI
-ggsave("./Figs/SI_DO_Conc.png",dpi=800,width=9,height=4)
-
 # Format for ARIMA modeling
 final_do_mgL <- do_mgL %>% 
   select(DateTime,epi_DO,hypo_DO) %>% 
@@ -408,7 +360,7 @@ ggplot(hypo_do_mgL,mapping=aes(x=DateTime,y=anoxia_time_d))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   theme_classic(base_size = 15)
 
-ggsave("./Figs/SI_DaysAnoxia.jpg",width=7,height=5,units="in",dpi=320)
+ggsave("./Figs/SI_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
 
 ## Plot model results by oxic vs. anoxic waters in the hypolimnion
 doc_model_oxy <- left_join(hypo_do_mgL,doc_processing,by="DateTime") %>% 
@@ -419,16 +371,6 @@ doc_model_oxy <- left_join(hypo_do_mgL,doc_processing,by="DateTime") %>%
 
 ## Plot by hypo internal loading under oxic vs. anoxic waters
 wilcox.test(mean_doc_hypo_process_g~anoxia,doc_model_oxy)
-
-doc_hypo <- doc_model_oxy %>% 
-  ggplot(mapping=aes(x=as.character(anoxia),y=mean_doc_hypo_process_g/1000))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot()+
-  ylab(expression(paste("Hypo Internal DOC (kg)")))+
-  xlab("")+
-  scale_x_discrete(breaks=c("0","1"),
-                   labels=c("Oxic", "Anoxic"))+
-  theme_classic(base_size = 15)
 
 doc_depth <- doc_processing %>% 
   select(DateTime,mean_doc_epi_process_g,mean_doc_hypo_process_g) %>% 
@@ -445,10 +387,47 @@ doc_depth <- doc_processing %>%
                    labels=c("Epi", "Hypo"))+
   theme_classic(base_size = 15)
 
-ggarrange(doc_hypo,doc_depth,nrow=1,ncol=2,labels = c("A.", "B."),
+doc_depth_no_outs <- doc_processing %>% 
+  select(DateTime,mean_doc_epi_process_g,mean_doc_hypo_process_g) %>% 
+  filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
+  mutate(month = month(DateTime)) %>% 
+  filter(month %in% c(4,5,6,7,8,9,10,11)) %>% 
+  pivot_longer(!c(DateTime,month),names_to="Loc",values_to="mean_doc_process_g") %>% 
+  ggplot(mapping=aes(x=Loc,y=mean_doc_process_g/1000))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_boxplot(outlier.shape=NA)+
+  ylab(expression(paste("Internal DOC (kg)")))+
+  xlab("")+
+  coord_cartesian(ylim = c(-50, 50))+
+  scale_x_discrete(breaks=c("mean_doc_epi_process_g","mean_doc_hypo_process_g"),
+                   labels=c("Epi", "Hypo"))+
+  theme_classic(base_size = 15)
+
+doc_hypo <- doc_model_oxy %>% 
+  ggplot(mapping=aes(x=as.character(anoxia),y=mean_doc_hypo_process_g/1000))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_boxplot()+
+  ylab(expression(paste("Hypo Internal DOC (kg)")))+
+  xlab("")+
+  scale_x_discrete(breaks=c("0","1"),
+                   labels=c("Oxic", "Anoxic"))+
+  theme_classic(base_size = 15)
+
+doc_hypo_no_outs <- doc_model_oxy %>% 
+  ggplot(mapping=aes(x=as.character(anoxia),y=mean_doc_hypo_process_g/1000))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_boxplot(outlier.shape = NA)+
+  ylab(expression(paste("Hypo Internal DOC (kg)")))+
+  xlab("")+
+  coord_cartesian(ylim = c(-10, 15))+
+  scale_x_discrete(breaks=c("0","1"),
+                   labels=c("Oxic", "Anoxic"))+
+  theme_classic(base_size = 15)
+
+ggarrange(doc_depth, doc_depth_no_outs, doc_hypo, doc_hypo_no_outs,nrow=2,ncol=2,labels = c("A.","B.","C.","D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_Internal_proc_comps.jpg",width=7,height=4,units="in",dpi=320)
+ggsave("./Figs/SI_Internal_proc_comps.jpg",width=7,height=7,units="in",dpi=320)
 
 ## Contribution of Epi internal DOC loading as compared to total loading
 doc_model_select <- doc_processing %>% 
@@ -553,7 +532,7 @@ chla_plot <- chla_ugL %>%
   scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
-  ylab(expression(V.W.~Chla~(~mu*g~L^-1)))+
+  ylab(expression(VW~Phyto~(~mu*g~L^-1)))+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
@@ -628,7 +607,50 @@ met_daily <- met %>%
   dplyr::summarise(rain_tot_mm = sum(Rain_Total_mm, na.rm = TRUE),
             ShortwaveRadiationUp_Average_W_m2 = mean(ShortwaveRadiationUp_Average_W_m2, na.rm = TRUE))
 
-## Then plot total rainfall and shortwave radiation
+## Then plot total rainfall and shortwave radiation with thermocline depth and DO
+## Plot timeseries of thermocline depth for SI
+vw_do_plot <- do_mgL %>%  
+  drop_na(epi_DO,hypo_DO) %>% 
+  ggplot()+
+  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  geom_line(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=1)+
+  geom_point(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=2)+
+  geom_line(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=1)+
+  geom_point(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=2)+
+  scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
+  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
+  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlab("") + 
+  ylab(expression(VW~DO~(mg~L^-1)))+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+thermo_plot <- thermo %>% 
+  drop_na(thermo.depth) %>% 
+  ggplot(mapping=aes(x=DateTime,y=-thermo.depth))+
+  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  geom_hline(yintercept = -0.1, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -1.6, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -3.8, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -5, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -6.2, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -8, linetype="dotted",color="darkgrey")+
+  geom_hline(yintercept = -9, linetype="dotted",color="darkgrey")+
+  geom_line(size=1)+
+  geom_point(size=2)+
+  ylab("Thermo. depth (m)")+
+  xlab("")+
+  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  theme_classic(base_size = 15)
+
 rain_plot <- met_daily %>% 
   ggplot(mapping=aes(x=DateTime,y=rain_tot_mm))+ 
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
@@ -653,14 +675,14 @@ sw_plot <- met_daily %>%
   geom_line(size=1)+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
-  ylab(expression(S.W.~Radiation~(W~m^2)))+
+  ylab(expression(SW~Rad~(W~m^2)))+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
-ggarrange(rain_plot,sw_plot,ncol=1,nrow=2,common.legend = TRUE, labels = c("A.", "B."),
+ggarrange(vw_do_plot,thermo_plot,rain_plot,sw_plot,ncol=1,nrow=4,common.legend = TRUE, labels = c("A.","B.","C.","D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_MetParameters.jpg",width=10,height=7,units="in",dpi=320)
+ggsave("./Figs/SI_WaterCol_MetParameters.jpg",width=10,height=12,units="in",dpi=320)
 
 ###############################################################################
 ## Format and add thermocline depth as a potential predictor variable, too
