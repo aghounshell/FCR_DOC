@@ -24,7 +24,7 @@ setwd(wd)
 
 # Load libraries
 pacman::p_load(tidyverse,ggplot2,ggpubr,rMR,lme4,PerformanceAnalytics,astsa,cowplot,lubridate,dplR,zoo,naniar,
-               DescTools,MuMIn,rsq,Metrics,truncnorm)
+               DescTools,MuMIn,rsq,Metrics,truncnorm,ggridges)
 
 ###############################################################################
 ## Load in various datastreams for box model
@@ -1130,14 +1130,68 @@ final_doc_inputs_g %>%
             sd_hypo = sd(mean_doc_hypo_process_mgL))
 
 ###############################################################################
-### Additional visualizations
+### Additional visualizations - following comments from co-authors
+## Constrain calculations/visualizations to June 1-November 15 (~summer stratified period)
+
+## Calculate % contribution
 final_doc_inputs_g <- final_doc_inputs_g %>% 
-  mutate(year = year(DateTime),
-         month = month(DateTime))
+  mutate(mean_internal_load_epi = (mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,
+         mean_internal_load_hypo = (mean_doc_hypo_process_g/mean_doc_dt_hypo_g)*100,
+         test_doc_dt_epi_g = (mean_doc_inflow_g*p)+(mean_doc_hypo_outflow_g*(1-p))+mean_doc_entr_g-mean_doc_epi_outflow_g+mean_doc_epi_process_g,
+         test_doc_dt_hypo_g = (mean_doc_inflow_g*(1-p)-mean_doc_entr_g-(mean_doc_hypo_outflow_g*(1-p))+mean_doc_hypo_process_g),
+         doy = yday(DateTime),
+         year = year(DateTime)) %>% 
+  filter(doy>=152 & doy<=308)
 
-final_doc_inputs_g %>% 
-  filter(month %in% c(6,7,8,9,10)) %>% 
-  ggplot()+
-  geom_density(mapping=aes(x=mean_doc_epi_process_mgL,color="Epi"))+
-  geom_density(mapping=aes(x=mean_doc_hypo_process_mgL,color="Hypo"))
+## Quick model check!
+ggplot(final_doc_inputs_g)+
+  geom_line(mapping=aes(x=DateTime,y=mean_doc_dt_hypo_g-test_doc_dt_hypo_g))
 
+doc_model_timepoints <- doc_model_timepoints %>% 
+  mutate(mean_internal_load_epi = (mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,
+         mean_internal_load_hypo = (mean_doc_hypo_process_g/mean_doc_dt_hypo_g)*100,
+         doy = yday(DateTime),
+         year = year(DateTime)) %>% 
+  filter(doy>=152 & doy<=308)
+
+## Plot timeseries of internal contribution
+ggplot()+
+  ggtitle("Epilimnion")+
+  geom_vline(xintercept = 299,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 295,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 297,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 306,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 308,linetype="dashed",color="darkgrey")+
+  geom_hline(mapping=aes(yintercept=0),color="grey")+
+  geom_line(final_doc_inputs_g,mapping=aes(x=doy,y=(mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,color=as.factor(year)))+
+  geom_point(doc_model_timepoints,mapping=aes(x=doy,y=(mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,color=as.factor(year)),size=2)+
+  ylab("Contribution of Internal DOC Sources")+
+  scale_x_continuous("",breaks=c(153,183,214,245,275,306),labels=c("01-Jun","01-Jul","01-Aug","01-Sep","01-Oct","01-Nov"))+
+  theme_classic(base_size=15) +
+  theme(legend.title=element_blank())
+
+ggplot()+
+  ggtitle("Hypolimnion")+
+  geom_vline(xintercept = 299,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 295,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 297,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 306,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 308,linetype="dashed",color="darkgrey")+
+  geom_hline(mapping=aes(yintercept=0),color="grey")+
+  geom_line(final_doc_inputs_g,mapping=aes(x=doy,y=mean_internal_load_hypo,color=as.factor(year)))+
+  geom_point(doc_model_timepoints,mapping=aes(x=doy,y=mean_internal_load_hypo,color=as.factor(year)),size=2)+
+  ylab("Contribution of Internal DOC Sources")+
+  scale_x_continuous("",breaks=c(153,183,214,245,275,306),labels=c("01-Jun","01-Jul","01-Aug","01-Sep","01-Oct","01-Nov"))+
+  theme_classic(base_size=15) +
+  theme(legend.title=element_blank())
+
+ggplot(doc_model_timepoints,mapping=aes(x=mean_internal_load_epi,y=as.factor(year),fill=as.factor(year)))+
+  geom_density_ridges()+
+  theme_ridges()+
+  theme(legend.position = "none")
+
+ggplot(doc_model_timepoints,mapping=aes(x=mean_internal_load_hypo,y=as.factor(year),fill=as.factor(year)))+
+  geom_density_ridges()+
+  theme_ridges()+
+  xlim(-500,500)+
+  theme(legend.position = "none")
