@@ -1130,29 +1130,124 @@ final_doc_inputs_g %>%
             sd_hypo = sd(mean_doc_hypo_process_mgL))
 
 ###############################################################################
+### Thinking about ways to visualize the 'big picture'
+## Average numbers (May 1 - Nov 15) from 2017-2021
+mean_model_timepoints <- final_doc_inputs_g %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  select(mean_doc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+         mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
+         mean_doc_hypo_process_mgL) %>% 
+  summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
+  pivot_longer(cols = contains("fn"),
+               names_to = "func") %>% 
+  mutate(stat = ifelse(grepl("fn1",func),"min",
+                       ifelse(grepl("fn2",func),"max",
+                              ifelse(grepl("fn3",func),"median",
+                                           ifelse(grepl("fn4",func),"mean",
+                                                  ifelse(grepl("fn5",func),"sd",NA))))))
+
+mean_model_timepoints$func <- substr(mean_model_timepoints$func,1,nchar(mean_model_timepoints$func)-4)
+
+mean_model_timepoints <- mean_model_timepoints %>% 
+  pivot_wider(names_from = stat, values_from = value) %>% 
+  mutate(year = "all")
+
+mean_model_timepoints_years <- final_doc_inputs_g %>% 
+  mutate(doy = yday(DateTime),
+         year = year(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  group_by(year) %>% 
+  select(year,mean_doc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+         mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
+         mean_doc_hypo_process_mgL) %>% 
+  summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
+  pivot_longer(cols = contains("fn"),
+               names_to = "func") %>% 
+  mutate(stat = ifelse(grepl("fn1",func),"min",
+                       ifelse(grepl("fn2",func),"max",
+                              ifelse(grepl("fn3",func),"median",
+                                     ifelse(grepl("fn4",func),"mean",
+                                            ifelse(grepl("fn5",func),"sd",NA))))))
+
+mean_model_timepoints_years$func <- substr(mean_model_timepoints_years$func,1,nchar(mean_model_timepoints_years$func)-4)
+
+mean_model_timepoints_years <- mean_model_timepoints_years %>% 
+  pivot_wider(names_from = stat, values_from = value)
+
+all_summary <- rbind(mean_model_timepoints,mean_model_timepoints_years)
+
+all_summary <- all_summary[, c("func", "year", "min", "max", "median", "mean", "sd")]
+
+write.csv(all_summary, "./Data/model_summary.csv",row.names=FALSE)
+
+## Plot?
+func_order <- c("mean_doc_entr_g","mean_doc_inflow_g", "mean_doc_hypo_outflow_g", 
+                "mean_doc_epi_outflow_g","mean_doc_epi_process_g","mean_doc_hypo_process_g")
+
+all_summary %>% 
+  filter(! func %in% c("mean_doc_epi_process_mgL","mean_doc_hypo_process_mgL","mean_doc_dt_epi_g","mean_doc_dt_hypo_g")) %>% 
+  ggplot(mapping=aes(x=factor(func,func_order),y=mean/1000,fill=year))+
+  geom_bar(stat="identity", position=position_dodge(),color="black")+
+  geom_hline(mapping=aes(yintercept=0))+
+  ylab(expression(paste("Mean Flux (kg d"^-1*")")))+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
+  scale_x_discrete("Model Parameter",labels=c("Entr.","Inflow","Hypo. Outflow","Epi. Outflow",
+                                              "Epi. Internal DOC","Hypo. Internal DOC"))+
+  theme_bw(base_size = 15) +
+  theme(legend.title=element_blank())
+
+## Calculate Percent contribution of internal vs. external loading?
+contributions <- all_summary %>% 
+  select(func,year,mean) %>% 
+  pivot_wider(names_from = func,values_from=mean) %>% 
+  mutate(epi_internal = mean_doc_epi_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100,
+         hypo_internal = mean_doc_hypo_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100,
+         inflow = mean_doc_inflow_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100) %>% 
+  select(year,epi_internal,hypo_internal,inflow) %>% 
+  pivot_longer(cols = epi_internal:inflow,
+               names_to = "type")
+
+## Plot overall contributions
+type_order <- c('inflow','epi_internal','hypo_internal')
+
+ggplot(contributions,mapping=aes(x=factor(type,type_order),y=value,fill=year))+
+  geom_bar(stat="identity",position=position_dodge(),color="black")+
+  ylab("Mean Contribution (%)")+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
+  scale_x_discrete("Model Parameter",labels=c("Stream Inflow","Epi. Internal DOC","Hypo. Internal DOC"))+
+  theme_bw(base_size = 15) +
+  theme(legend.title=element_blank())
+
+###############################################################################
 ### Additional visualizations - following comments from co-authors
+### A LOT TO TAKE IN - MAY END UP REMOVING THIS PART!!!!!!
 ## Constrain calculations/visualizations to June 1-November 15 (~summer stratified period)
 
 ## Calculate % contribution
-final_doc_inputs_g <- final_doc_inputs_g %>% 
-  mutate(mean_internal_load_epi = (mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,
-         mean_internal_load_hypo = (mean_doc_hypo_process_g/mean_doc_dt_hypo_g)*100,
+final_doc_inputs_contribution <- final_doc_inputs_g %>% 
+  mutate(epi_internal = mean_doc_epi_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
+         hypo_internal = mean_doc_hypo_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
+         inflow = mean_doc_inflow_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
          test_doc_dt_epi_g = (mean_doc_inflow_g*p)+(mean_doc_hypo_outflow_g*(1-p))+mean_doc_entr_g-mean_doc_epi_outflow_g+mean_doc_epi_process_g,
          test_doc_dt_hypo_g = (mean_doc_inflow_g*(1-p)-mean_doc_entr_g-(mean_doc_hypo_outflow_g*(1-p))+mean_doc_hypo_process_g),
          doy = yday(DateTime),
          year = year(DateTime)) %>% 
-  filter(doy>=152 & doy<=308)
+  filter(doy>=122 & doy<=320)
 
 ## Quick model check!
 ggplot(final_doc_inputs_g)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_dt_hypo_g-test_doc_dt_hypo_g))
 
-doc_model_timepoints <- doc_model_timepoints %>% 
-  mutate(mean_internal_load_epi = (mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,
-         mean_internal_load_hypo = (mean_doc_hypo_process_g/mean_doc_dt_hypo_g)*100,
+doc_model_timepoints_contribution <- doc_model_timepoints %>% 
+  mutate(epi_internal = mean_doc_epi_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
+         hypo_internal = mean_doc_hypo_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
+         inflow = mean_doc_inflow_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g),
+         test_doc_dt_epi_g = (mean_doc_inflow_g*p)+(mean_doc_hypo_outflow_g*(1-p))+mean_doc_entr_g-mean_doc_epi_outflow_g+mean_doc_epi_process_g,
+         test_doc_dt_hypo_g = (mean_doc_inflow_g*(1-p)-mean_doc_entr_g-(mean_doc_hypo_outflow_g*(1-p))+mean_doc_hypo_process_g),
          doy = yday(DateTime),
          year = year(DateTime)) %>% 
-  filter(doy>=152 & doy<=308)
+  filter(doy>=122 & doy<=320)
 
 ## Plot timeseries of internal contribution
 ggplot()+
@@ -1163,9 +1258,24 @@ ggplot()+
   geom_vline(xintercept = 306,linetype="dashed",color="darkgrey")+
   geom_vline(xintercept = 308,linetype="dashed",color="darkgrey")+
   geom_hline(mapping=aes(yintercept=0),color="grey")+
-  geom_line(final_doc_inputs_g,mapping=aes(x=doy,y=(mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,color=as.factor(year)))+
-  geom_point(doc_model_timepoints,mapping=aes(x=doy,y=(mean_doc_epi_process_g/mean_doc_dt_epi_g)*100,color=as.factor(year)),size=2)+
+  geom_line(doc_model_timepoints_contribution,mapping=aes(x=doy,y=epi_internal,color=as.factor(year)))+
+  geom_point(doc_model_timepoints_contribution,mapping=aes(x=doy,y=epi_internal,color=as.factor(year)),size=2)+
   ylab("Contribution of Internal DOC Sources")+
+  scale_x_continuous("",breaks=c(153,183,214,245,275,306),labels=c("01-Jun","01-Jul","01-Aug","01-Sep","01-Oct","01-Nov"))+
+  theme_classic(base_size=15) +
+  theme(legend.title=element_blank())
+
+ggplot()+
+  ggtitle("Epilimnion")+
+  geom_vline(xintercept = 299,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 295,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 297,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 306,linetype="dashed",color="darkgrey")+
+  geom_vline(xintercept = 308,linetype="dashed",color="darkgrey")+
+  geom_hline(mapping=aes(yintercept=0),color="grey")+
+  geom_line(final_doc_inputs_contribution,mapping=aes(x=doy,y=mean_inflow_load_epi,color=as.factor(year)))+
+  geom_point(doc_model_timepoints_contribution,mapping=aes(x=doy,y=mean_inflow_load_epi,color=as.factor(year)),size=2)+
+  ylab("Contribution of Inflow DOC Sources")+
   scale_x_continuous("",breaks=c(153,183,214,245,275,306),labels=c("01-Jun","01-Jul","01-Aug","01-Sep","01-Oct","01-Nov"))+
   theme_classic(base_size=15) +
   theme(legend.title=element_blank())
@@ -1185,12 +1295,12 @@ ggplot()+
   theme_classic(base_size=15) +
   theme(legend.title=element_blank())
 
-ggplot(doc_model_timepoints,mapping=aes(x=mean_internal_load_epi,y=as.factor(year),fill=as.factor(year)))+
+ggplot(doc_model_timepoints_contribution,mapping=aes(x=epi_internal,y=as.factor(year),fill=as.factor(year)))+
   geom_density_ridges()+
   theme_ridges()+
   theme(legend.position = "none")
 
-ggplot(doc_model_timepoints,mapping=aes(x=mean_internal_load_hypo,y=as.factor(year),fill=as.factor(year)))+
+ggplot(doc_model_timepoints_contribution,mapping=aes(x=mean_internal_load_hypo,y=as.factor(year),fill=as.factor(year)))+
   geom_density_ridges()+
   theme_ridges()+
   xlim(-500,500)+
