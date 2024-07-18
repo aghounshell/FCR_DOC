@@ -27,8 +27,124 @@ wd <- getwd()
 setwd(wd)
 
 ## Load in libraries
-pacman::p_load(tidyverse,ggplot2,ggpubr,zoo,scales,plyr,
+pacman::p_load(tidyverse,ggplot2,ggpubr,zoo,scales,plyr,ggridges,
                lubridate,lognorm,forecast,utils,igraph,RColorBrewer,PerformanceAnalytics)
+
+###############################################################################
+## Load in Epi and Hypo V.W. DOC concentrations - from Eco_DOC_rlnorm.R
+doc_mgL <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
+  dplyr::rename(Depth = Loc)
+
+## Calculate mean and SD for the hypo during the summer stratified period
+### IS THIS NEEDED???? ####
+doc_mgL %>% 
+  mutate(month = month(DateTime)) %>% 
+  filter(Depth == "Hypo" & month %in% c(6,7,8,9,10) & DateTime >= as.POSIXct("2017-01-01")) %>% 
+  summarise(mean = mean(DOC_mgL,na.rm=TRUE),
+            sd = sd(DOC_mgL,na.rm=TRUE))
+
+###############################################################################
+## Add in DOC processing - calculated from Eco_DOC_rlnorm.R
+doc_processing <- read_csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+doc_proc_mgL <- doc_processing %>% 
+  select(DateTime, mean_doc_epi_process_mgL, mean_doc_hypo_process_mgL) %>% 
+  pivot_longer(!DateTime, names_to = "Depth", values_to = "DOC_processing_mgL") %>% 
+  mutate(Depth = ifelse(Depth == "mean_doc_epi_process_mgL","Epi",
+                        ifelse(Depth == "mean_doc_hypo_process_mgL", "Hypo", NA))) %>% 
+  mutate(year = year(DateTime),
+         month = month(DateTime))
+
+all_doc_mgL <- left_join(doc_mgL,doc_proc_mgL,by=c("DateTime","Depth"))
+
+doc_proc_g <- doc_processing %>% 
+  select(DateTime, mean_doc_epi_process_g, mean_doc_hypo_process_g) %>% 
+  pivot_longer(!DateTime, names_to = "Depth", values_to = "DOC_processing_g") %>% 
+  mutate(Depth = ifelse(Depth == "mean_doc_epi_process_g","Epi",
+                        ifelse(Depth == "mean_doc_hypo_process_g", "Hypo", NA))) %>% 
+  mutate(year = year(DateTime),
+         month = month(DateTime))
+
+## Plot distributions of doc_proc_g
+epi_distribution <- doc_proc_g %>% 
+  filter(Depth == "Epi") %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  ggplot(mapping=aes(x=DOC_processing_g/1000,y=as.factor(year),fill=as.factor(year)))+
+  ggtitle("Epilimnion")+
+  geom_density_ridges()+
+  geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
+  xlab(expression(paste("Internal DOC (kg d"^-1*")")))+
+  ylab("")+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B"))+
+  theme_ridges()+
+  theme(legend.position = "none")
+
+hypo_distribution <- doc_proc_g %>% 
+  filter(Depth == "Hypo") %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  ggplot(mapping=aes(x=DOC_processing_g/1000,y=as.factor(year),fill=as.factor(year)))+
+  ggtitle("Hypolimnion")+
+  geom_density_ridges()+
+  geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
+  xlab(expression(paste("Internal DOC (kg d"^-1*")")))+
+  ylab("")+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B"))+
+  theme_ridges()+
+  theme(legend.position = "none")
+
+### Load in model summary from 2_Eco_DOC_rlnorm.R
+all_summary <- read.csv("./Data/model_summary.csv")
+
+## Plot
+func_order <- c("mean_doc_entr_g","mean_doc_inflow_g", "mean_doc_hypo_outflow_g", 
+                "mean_doc_epi_outflow_g","mean_doc_epi_process_g","mean_doc_hypo_process_g")
+
+model_summary <- all_summary %>% 
+  filter(! func %in% c("mean_doc_epi_process_mgL","mean_doc_hypo_process_mgL","mean_doc_dt_epi_g","mean_doc_dt_hypo_g")) %>% 
+  ggplot(mapping=aes(x=factor(func,func_order),y=mean/1000,fill=year))+
+  geom_bar(stat="identity", position=position_dodge(),color="black")+
+  geom_hline(mapping=aes(yintercept=0))+
+  ylab(expression(paste("Mean DOC (kg d"^-1*")")))+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
+  scale_x_discrete("Model Parameter",labels=c("Entr.","Inflow",expression(atop("Hypo.", "Outflow")),expression(atop("Epi.", "Outflow")),
+                                              expression(atop("Epi.", "Internal")),expression(atop("Hypo.", "Internal"))))+
+  theme_bw(base_size = 15) +
+  theme(legend.title=element_blank())+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+## Calculate Percent contribution of internal vs. external loading
+contributions <- all_summary %>% 
+  select(func,year,mean) %>% 
+  pivot_wider(names_from = func,values_from=mean) %>% 
+  mutate(epi_internal = mean_doc_epi_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100,
+         hypo_internal = mean_doc_hypo_process_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100,
+         inflow = mean_doc_inflow_g/(mean_doc_inflow_g+mean_doc_epi_process_g+mean_doc_hypo_process_g)*100) %>% 
+  select(year,epi_internal,hypo_internal,inflow) %>% 
+  pivot_longer(cols = epi_internal:inflow,
+               names_to = "type")
+
+## Plot overall contributions
+type_order <- c('inflow','epi_internal','hypo_internal')
+
+contribution_fig <- ggplot(contributions,mapping=aes(x=factor(type,type_order),y=value,fill=year))+
+  geom_bar(stat="identity",position=position_dodge(),color="black")+
+  ylab("Mean Contribution (%)")+
+  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
+  scale_x_discrete("Model Parameter",labels=c(expression(atop("Stream", "Inflow")),expression(atop("Epi.", "Internal")),expression(atop("Hypo.", "Internal"))))+
+  theme_bw(base_size = 15) +
+  theme(legend.title=element_blank())+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggarrange(model_summary,contribution_fig,
+          ggarrange(epi_distribution,hypo_distribution,ncol=2,labels=c("C.","D.")),
+          nrow=3,ncol=1,labels = c("A.", "B."),
+          common.legend=TRUE,font.label=list(face="plain",size=15))
+
+ggsave("./Figs/Updated_Fig5_Model_Summary.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ## Load in thermocline data - obtained from CTD and YSI casts
@@ -62,63 +178,6 @@ thermo %>%
   mutate(year = year(DateTime)) %>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(4,5,6,7,8,9)) %>% 
   summarise_all(median,na.rm=TRUE)
-
-###############################################################################
-## Load in Epi and Hypo V.W. DOC concentrations - from Eco_DOC_rlnorm.R
-doc_mgL <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
-  dplyr::rename(Depth = Loc)
-
-## Calculate mean and SD for the hypo during the summer stratified period
-doc_mgL %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(Depth == "Hypo" & month %in% c(6,7,8,9,10) & DateTime >= as.POSIXct("2017-01-01")) %>% 
-  summarise(mean = mean(DOC_mgL,na.rm=TRUE),
-            sd = sd(DOC_mgL,na.rm=TRUE))
-
-###############################################################################
-## Add in DOC processing - calculated from Eco_DOC_rlnorm.R
-doc_processing <- read_csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
-
-doc_proc_mgL <- doc_processing %>% 
-  select(DateTime, mean_doc_epi_process_mgL, mean_doc_hypo_process_mgL) %>% 
-  pivot_longer(!DateTime, names_to = "Depth", values_to = "DOC_processing_mgL") %>% 
-  mutate(Depth = ifelse(Depth == "mean_doc_epi_process_mgL","Epi",
-                        ifelse(Depth == "mean_doc_hypo_process_mgL", "Hypo", NA)))
-
-all_doc_mgL <- left_join(doc_mgL,doc_proc_mgL,by=c("DateTime","Depth"))
-
-## Plot figure of DOC processing by year for SI: similar to figure for [DOC] by year
-doc_proc_mgL <- doc_proc_mgL %>% 
-  mutate(year = year(DateTime),
-         month = month(DateTime))
-
-out <- doc_proc_mgL %>% 
-  filter(month %in% c(6,7,8,9,10)) %>% 
-  ggplot(mapping=aes(x=as.factor(year),y=DOC_processing_mgL,fill=Depth))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot(size=0.8,alpha=0.5)+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  xlab("")+
-  ylab(expression(atop("DOC Internal Sources", paste("(mg L"^-1*" d"^-1*")"))))+
-  theme_classic(base_size = 15)
-
-no_out <- doc_proc_mgL %>% 
-  filter(month %in% c(6,7,8,9,10)) %>% 
-  ggplot(mapping=aes(x=as.factor(year),y=DOC_processing_mgL,fill=Depth))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot(size=0.8,alpha=0.5,outlier.shape=NA)+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  coord_cartesian(ylim = c(-0.5, 0.5))+
-  xlab("")+
-  ylab(expression(atop("DOC Internal Sources", paste("(mg L"^-1*" d"^-1*")"))))+
-  theme_classic(base_size = 15)
-
-ggarrange(out,no_out,nrow=1,ncol=2,labels = c("A.", "B."),
-          font.label=list(face="plain",size=15),common.legend = TRUE)
-
-ggsave("./Figs/26Apr24_SI_DOC_Proc_Year_Boxplot.png",dpi=800,width=8,height=4)
 
 ###############################################################################
 ## Load in CTD + YSI data - temp, Sal, DO
@@ -240,7 +299,7 @@ do_pSat <- casts_depths %>%
   select(DateTime,new_depth,DO_pSat) %>% 
   mutate(DO_pSat = as.numeric(DO_pSat)) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = new_depth, values_from = DO_pSat, values_fil = NA, values_fn = mean, names_prefix = "DO_")
+  pivot_wider(names_from = new_depth, values_from = DO_pSat, values_fill = NA, values_fn = mean, names_prefix = "DO_")
 
 do_pSat <- left_join(do_pSat, thermo, by="DateTime")
 
@@ -298,7 +357,7 @@ do_mgL <- casts_depths %>%
   select(DateTime,new_depth,DO_mgL) %>% 
   mutate(DO_mgL = as.numeric(DO_mgL)) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = new_depth, values_from = DO_mgL, values_fil = NA, values_fn = mean, names_prefix = "DO_")
+  pivot_wider(names_from = new_depth, values_from = DO_mgL, values_fill = NA, values_fn = mean, names_prefix = "DO_")
 
 do_mgL <- left_join(do_mgL, thermo, by="DateTime")
 
@@ -365,79 +424,53 @@ ggsave("./Figs/SI_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
 ## Plot model results by oxic vs. anoxic waters in the hypolimnion
 doc_model_oxy <- left_join(hypo_do_mgL,doc_processing,by="DateTime") %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(month %in% c(4,5,6,7,8,9,10,11)) %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
   drop_na(anoxia)
+
+## Add in VW Hypo DOC (mg/L)
+doc_model_oxy <- left_join(doc_model_oxy,doc_mgL,by=c("DateTime","Depth"))
 
 ## Plot by hypo internal loading under oxic vs. anoxic waters
 wilcox.test(mean_doc_hypo_process_g~anoxia,doc_model_oxy)
 
-doc_depth <- doc_processing %>% 
-  select(DateTime,mean_doc_epi_process_g,mean_doc_hypo_process_g) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(month %in% c(4,5,6,7,8,9,10,11)) %>% 
-  pivot_longer(!c(DateTime,month),names_to="Loc",values_to="mean_doc_process_g") %>% 
-  ggplot(mapping=aes(x=Loc,y=mean_doc_process_g/1000))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot()+
-  ylab(expression(paste("Internal DOC (kg)")))+
-  xlab("")+
-  scale_x_discrete(breaks=c("mean_doc_epi_process_g","mean_doc_hypo_process_g"),
-                   labels=c("Epi", "Hypo"))+
-  theme_classic(base_size = 15)
-
-doc_depth_no_outs <- doc_processing %>% 
-  select(DateTime,mean_doc_epi_process_g,mean_doc_hypo_process_g) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(month %in% c(4,5,6,7,8,9,10,11)) %>% 
-  pivot_longer(!c(DateTime,month),names_to="Loc",values_to="mean_doc_process_g") %>% 
-  ggplot(mapping=aes(x=Loc,y=mean_doc_process_g/1000))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot(outlier.shape=NA)+
-  ylab(expression(paste("Internal DOC (kg)")))+
-  xlab("")+
-  coord_cartesian(ylim = c(-50, 50))+
-  scale_x_discrete(breaks=c("mean_doc_epi_process_g","mean_doc_hypo_process_g"),
-                   labels=c("Epi", "Hypo"))+
-  theme_classic(base_size = 15)
-
-doc_hypo <- doc_model_oxy %>% 
-  ggplot(mapping=aes(x=as.character(anoxia),y=mean_doc_hypo_process_g/1000))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot()+
-  ylab(expression(paste("Hypo Internal DOC (kg)")))+
-  xlab("")+
-  scale_x_discrete(breaks=c("0","1"),
+## Plot distributions - oxic vs. anoxic
+hypo_oxy_proc <- doc_model_oxy %>% 
+  ggplot(mapping=aes(x=mean_doc_hypo_process_g/1000,y=as.factor(anoxia),fill=as.factor(anoxia)))+
+  geom_density_ridges()+
+  geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
+  scale_fill_manual(values=c("#7EBDC2", "#9B9B9B"))+
+  scale_y_discrete(breaks=c("0","1"),
                    labels=c("Oxic", "Anoxic"))+
-  theme_classic(base_size = 15)
+  xlab(expression(paste("Hypo. Internal DOC (kg d"^-1*")")))+
+  ylab("")+
+  theme_ridges()+
+  theme(legend.position = "none")
 
-doc_hypo_no_outs <- doc_model_oxy %>% 
-  ggplot(mapping=aes(x=as.character(anoxia),y=mean_doc_hypo_process_g/1000))+
-  geom_hline(yintercept = 0, linetype="dashed")+
-  geom_boxplot(outlier.shape = NA)+
-  ylab(expression(paste("Hypo Internal DOC (kg)")))+
-  xlab("")+
-  coord_cartesian(ylim = c(-10, 15))+
-  scale_x_discrete(breaks=c("0","1"),
+## Find mean under oxic conditions
+doc_model_oxy %>% 
+  group_by(anoxia) %>% 
+  summarise_at(vars(DOC_mgL), funs(mean(., na.rm=TRUE)))
+
+hypo_oxy_conc <- doc_model_oxy %>% 
+  ggplot(mapping=aes(x=DOC_mgL,y=as.factor(anoxia),fill=as.factor(anoxia)))+
+  geom_density_ridges()+
+  geom_vline(mapping=aes(xintercept=2.67),linetype="dashed")+ #oxic
+  annotate("text", x = 2.8, y=1.2, label = "Oxic",angle = 90,size=5)+
+  geom_vline(mapping=aes(xintercept=2.47),linetype="dashed")+ #anoxic
+  annotate("text", x = 2.3, y=3.1, label = "Anoxic",angle = 90,size=5)+
+  scale_fill_manual(values=c("#7EBDC2", "#9B9B9B"))+
+  scale_y_discrete(breaks=c("0","1"),
                    labels=c("Oxic", "Anoxic"))+
-  theme_classic(base_size = 15)
+  xlab(expression(paste("Hypo. DOC (mg L"^-1*")")))+
+  ylab("")+
+  theme_ridges()+
+  theme(legend.position = "none")
 
-ggarrange(doc_depth, doc_depth_no_outs, doc_hypo, doc_hypo_no_outs,nrow=2,ncol=2,labels = c("A.","B.","C.","D."),
+ggarrange(hypo_oxy_proc,hypo_oxy_conc,ncol=1,nrow=2, labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_Internal_proc_comps.jpg",width=7,height=7,units="in",dpi=320)
-
-## Contribution of Epi internal DOC loading as compared to total loading
-doc_model_select <- doc_processing %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(month %in% c(4,5,6,7,8,9,10,11))
-
-mean(doc_model_select$mean_doc_epi_process_g)/(mean(doc_model_select$mean_doc_epi_process_g)+mean(doc_model_select$mean_doc_hypo_outflow_g)+(mean(doc_model_select$mean_doc_inflow_g)*0.74))*100
-
-mean(doc_model_select$mean_doc_hypo_process_g)/(mean(doc_model_select$mean_doc_hypo_process_g)+(mean(doc_model_select$mean_doc_inflow_g)*0.26))*100
+ggsave("./Figs/Fig7_Hypo_Oxy.jpg",width=9,height=10,units="in",dpi=320)
 
 ###############################################################################
 ## Load in Flora data - Chla and community analysis
@@ -1201,30 +1234,5 @@ for (i in 1:nrow(good)){
   
   
 }
-
-###############################################################################
-## Some additional visualizations :)
-## Look at Pheophytin data to see if most of the hypo Chla is dead
-## Data last downloaded on 12 Mar 2024
-#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/555/4/4d92727343445ad28046d57ac852b45f" 
-#infile1 <- paste0(getwd(),"/Data/manual_chlorophyll_2014_2021.csv")
-#download.file(inUrl1,infile1,method="curl")
-
-## Select 2015 - only year with Hypo Pheo data
-pheo <- read.csv("./Data/manual_chlorophyll_2014_2021.csv", header=T) %>% 
-  filter(Reservoir == "FCR" & Site == 50) %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")),
-         Pheo_ugL = ifelse(Pheo_ugL<0, 0, Pheo_ugL)) %>% 
-  filter(DateTime<as.POSIXct("2016-01-01"))
-
-ggplot(pheo,mapping=aes(x=DateTime,y=Pheo_ugL/(Pheo_ugL+Chla_ugL)*100,color=as.factor(Depth_m)))+
-  geom_point(size=3)+
-  geom_line(size=1)+
-  ylab("% Pheophytin")+
-  xlab("2015")+
-  scale_color_discrete(name = "Depth (m)")+
-  theme_bw(base_size = 15)
-
-ggsave("./Figs/SI_PercPheophytin.png",dpi=800,width=9,height=4)
 
 ###############################################################################
