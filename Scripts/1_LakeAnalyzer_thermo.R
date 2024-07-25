@@ -6,7 +6,7 @@
 ### Updated on 12 Aug 2022 to include 2021 data
 
 ### Updated: 8 July 2024, A. Hounshell
-## Following comments from DWH code review (thanks, DWH!)
+## Following comments from DWH & HW code review (thank you!)
 
 ###############################################################################
 # Clear workspace
@@ -56,23 +56,6 @@ ysi_50 <- ysi %>%
   filter(Site==50) %>% 
   dplyr::rename(time = DateTime)
 
-# Combine CTD and YSI data for site 50
-# Select unique dates from both CTD and YSI casts
-ysi_date_list <- as.data.frame(unique(as.Date(ysi_50$time)))
-names(ysi_date_list)[1] <- "time"
-ysi_date_list$ysi_fcr <- rep(-99,length(ysi_date_list$time))
-ysi_date_list <- ysi_date_list %>% 
-  arrange(time)
-
-ctd_date_list <- as.data.frame(unique(as.Date(ctd_50$time)))
-names(ctd_date_list)[1] <- "time"
-ctd_date_list$ctd_fcr <- rep(-99,length(ctd_date_list$time))
-ctd_date_list <- ctd_date_list %>% 
-  arrange(time)
-
-# Combine Unique dates list by date
-fcr_dates <- merge(ysi_date_list, ctd_date_list, by="time", all.x=TRUE, all.y=TRUE)
-
 ### Merge data CTD and YSI datasets for FCR
 fcr_merge <- merge(ctd_50, ysi_50, by="time", all.x=TRUE, all.y=TRUE)
 
@@ -106,8 +89,6 @@ fcr_all <- fcr_merge %>%
   select(time,Depth_m.x,Temp_C.x,DO_mgL.x,DO_pSat,Cond_uScm.x,Chla_ugL,Turb_NTU,pH.x,ORP_mV.x,PAR_umolm2s.x) %>% 
   dplyr::rename(depth=Depth_m.x,Temp_C=Temp_C.x,DO_mgL=DO_mgL.x,Cond_uScm=Cond_uScm.x,pH=pH.x,ORP_mV=ORP_mV.x,PAR_umolm2s=PAR_umolm2s.x)
 
-fcr_date_list <- as.data.frame(unique(as.Date(fcr_all$time)))
-
 ## Average across date and depth
 fcr_all <- fcr_all %>% group_by(time,depth) %>% summarize_all(funs(mean),na.rm=TRUE) %>% arrange(time,depth)
 
@@ -115,11 +96,13 @@ fcr_all <- fcr_all %>% group_by(time,depth) %>% summarize_all(funs(mean),na.rm=T
 write.csv(fcr_all,"./Data/merged_YSI_CTD.csv", row.names = FALSE)
 
 layer <- fcr_all %>% 
-  dplyr::rename(Date = time, Depth_m = depth)
+  dplyr::rename(Date = time, Depth_m = depth) %>% 
+  filter(Depth_m>=0)
 
 ### Formatting for LakeAnalyzer ----
 df.final<-data.frame()
 
+## For all sampling timepoints (n=522) averages YSI/CTD cast across that (or the closest) depth layer
 layer1<-layer %>% group_by(Date) %>% slice(which.min(abs(as.numeric(Depth_m) - 0.1)))
 layer1$Depth_m <- 0.1
 layer2<-layer %>% group_by(Date) %>% slice(which.min(abs(as.numeric(Depth_m) - 0.5)))

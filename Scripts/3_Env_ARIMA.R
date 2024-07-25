@@ -36,14 +36,6 @@ doc_mgL <- read.csv("./Data/EpiHypo_DOC.csv") %>%
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
   dplyr::rename(Depth = Loc)
 
-## Calculate mean and SD for the hypo during the summer stratified period
-### IS THIS NEEDED???? ####
-doc_mgL %>% 
-  mutate(month = month(DateTime)) %>% 
-  filter(Depth == "Hypo" & month %in% c(6,7,8,9,10) & DateTime >= as.POSIXct("2017-01-01")) %>% 
-  summarise(mean = mean(DOC_mgL,na.rm=TRUE),
-            sd = sd(DOC_mgL,na.rm=TRUE))
-
 ###############################################################################
 ## Add in DOC processing - calculated from Eco_DOC_rlnorm.R
 doc_processing <- read_csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
@@ -114,7 +106,8 @@ model_summary <- all_summary %>%
                                               expression(atop("Epi.", "Internal")),expression(atop("Hypo.", "Internal"))))+
   theme_bw(base_size = 15) +
   theme(legend.title=element_blank())+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  theme(legend.position="top")
 
 ## Calculate Percent contribution of internal vs. external loading
 contributions <- all_summary %>% 
@@ -128,21 +121,21 @@ contributions <- all_summary %>%
                names_to = "type")
 
 ## Plot overall contributions
-type_order <- c('inflow','epi_internal','hypo_internal')
+type_order <- c('hypo_internal','epi_internal','inflow')
 
-contribution_fig <- ggplot(contributions,mapping=aes(x=factor(type,type_order),y=value,fill=year))+
-  geom_bar(stat="identity",position=position_dodge(),color="black")+
+contribution_fig <- ggplot(contributions,mapping=aes(x=year,y=value,fill=factor(type,type_order)))+
+  geom_bar(stat="identity",position="stack",color="black",alpha=0.8)+
   ylab("Mean Contribution (%)")+
-  scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
-  scale_x_discrete("Model Parameter",labels=c(expression(atop("Stream", "Inflow")),expression(atop("Epi.", "Internal")),expression(atop("Hypo.", "Internal"))))+
+  scale_fill_manual(values=c("#393E41","#7EBDC2","#F0B670"),labels=c("Hypo. Internal","Epi. Internal", "Inflow"))+
+  scale_x_discrete("")+
   theme_bw(base_size = 15) +
   theme(legend.title=element_blank())+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  theme(legend.position="top")
 
-ggarrange(model_summary,contribution_fig,
-          ggarrange(epi_distribution,hypo_distribution,ncol=2,labels=c("C.","D.")),
-          nrow=3,ncol=1,labels = c("A.", "B."),
-          common.legend=TRUE,font.label=list(face="plain",size=15))
+ggarrange(ggarrange(model_summary,contribution_fig,ncol=2,labels=c("A.","B."),font.label=list(face="plain",size=15)),
+          epi_distribution,hypo_distribution,
+          nrow=3,ncol=1,labels = c("","C.", "D."),font.label=list(face="plain",size=15),heights = c(1, 0.7,0.7))
 
 ggsave("./Figs/Updated_Fig5_Model_Summary.jpg",width=9,height=12,units="in",dpi=320)
 
@@ -157,7 +150,7 @@ thermo <- read.csv("./Data/rev_FCR_results_LA.csv") %>%
 ## Estimate the location of the epi and hypo using thermocline depth
 thermo <- thermo %>% 
   mutate(thermo.depth = round(thermo.depth,digits=1)) %>% 
-  mutate(epi_bottomg_depth_m = ifelse(thermo.depth > 9.0, 9.0,
+  mutate(epi_bottom_depth_m = ifelse(thermo.depth > 9.0, 9.0,
                                       ifelse(thermo.depth > 7.0, 8.0,
                                              ifelse(thermo.depth > 6.0, 6.2,
                                                     ifelse(thermo.depth > 4.4, 5.0,
@@ -242,18 +235,18 @@ temp_c <- casts_depths %>%
   select(DateTime,new_depth,Temp_C) %>% 
   mutate(Temp_C = as.numeric(Temp_C)) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = new_depth, values_from = Temp_C, values_fil = NA, values_fn = mean, names_prefix = "Temp_")
+  pivot_wider(names_from = new_depth, values_from = Temp_C, values_fill = NA, values_fn = mean, names_prefix = "Temp_")
 
 temp_c <- left_join(temp_c, thermo, by="DateTime")
 
 temp_c <- temp_c %>% 
-  mutate(epi_temp = ifelse(is.na(epi_bottomg_depth_m), ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                           ifelse(epi_bottomg_depth_m == 0.1, Temp_0.1,
-                                  ifelse(epi_bottomg_depth_m == 1.6, (Temp_0.1*vol_depths$Vol_m3[1]+Temp_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                         ifelse(epi_bottomg_depth_m == 3.8, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                                ifelse(epi_bottomg_depth_m == 5, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                       ifelse(epi_bottomg_depth_m == 6.2, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                              ifelse(epi_bottomg_depth_m == 8, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
+  mutate(epi_temp = ifelse(is.na(epi_bottom_depth_m), ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
+                           ifelse(epi_bottom_depth_m == 0.1, Temp_0.1,
+                                  ifelse(epi_bottom_depth_m == 1.6, (Temp_0.1*vol_depths$Vol_m3[1]+Temp_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
+                                         ifelse(epi_bottom_depth_m == 3.8, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
+                                                ifelse(epi_bottom_depth_m == 5, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
+                                                       ifelse(epi_bottom_depth_m == 6.2, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
+                                                              ifelse(epi_bottom_depth_m == 8, ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
   mutate(hypo_temp = ifelse(is.na(hypo_top_depth_m), ((Temp_0.1*vol_depths$Vol_m3[1])+(Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
                             ifelse(hypo_top_depth_m == 1.6, ((Temp_1.6*vol_depths$Vol_m3[2])+(Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
                                    ifelse(hypo_top_depth_m == 3.8, ((Temp_3.8*vol_depths$Vol_m3[3])+(Temp_5.0*vol_depths$Vol_m3[4])+(Temp_6.2*vol_depths$Vol_m3[5])+(Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
@@ -263,7 +256,7 @@ temp_c <- temp_c %>%
                                                                ifelse(hypo_top_depth_m == 9, Temp_9.0, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
-## Some light QA/QC'ing
+## Some light QA/QC'ing - weird temps
 # temp_c <- temp_c[!(temp_c$DateTime = as.POSIXct("2021-08-20") | temp_c$DateTime == as.POSIXct("2020-07-08") | temp_c$DateTime == as.POSIXct("2019-05-30") | temp_c$DateTime == as.POSIXct("2019-04-29") | temp_c$DateTime == as.POSIXct("2017-09-17")),]
 temp_c <- temp_c[-c(267,348,353,418,484),]
 
@@ -272,10 +265,15 @@ temp_plot <- temp_c %>%
   drop_na(epi_temp,hypo_temp) %>% 
   ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(mapping=aes(x=DateTime,y=epi_temp,color="Epi"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=epi_temp,color="Epi"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=hypo_temp,color="Hypo"),size=1)+
@@ -304,13 +302,13 @@ do_pSat <- casts_depths %>%
 do_pSat <- left_join(do_pSat, thermo, by="DateTime")
 
 do_pSat <- do_pSat %>% 
-  mutate(epi_DO = ifelse(is.na(epi_bottomg_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                           ifelse(epi_bottomg_depth_m == 0.1, DO_0.1,
-                                  ifelse(epi_bottomg_depth_m == 1.6, (DO_0.1*vol_depths$Vol_m3[1]+DO_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                         ifelse(epi_bottomg_depth_m == 3.8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                                ifelse(epi_bottomg_depth_m == 5, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                       ifelse(epi_bottomg_depth_m == 6.2, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                              ifelse(epi_bottomg_depth_m == 8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
+  mutate(epi_DO = ifelse(is.na(epi_bottom_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
+                           ifelse(epi_bottom_depth_m == 0.1, DO_0.1,
+                                  ifelse(epi_bottom_depth_m == 1.6, (DO_0.1*vol_depths$Vol_m3[1]+DO_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
+                                         ifelse(epi_bottom_depth_m == 3.8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
+                                                ifelse(epi_bottom_depth_m == 5, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
+                                                       ifelse(epi_bottom_depth_m == 6.2, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
+                                                              ifelse(epi_bottom_depth_m == 8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
   mutate(hypo_DO = ifelse(is.na(hypo_top_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
                             ifelse(hypo_top_depth_m == 1.6, ((DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
                                    ifelse(hypo_top_depth_m == 3.8, ((DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
@@ -329,10 +327,15 @@ do_plot <- do_pSat %>%
   drop_na(epi_DO,hypo_DO) %>% 
   ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=1)+
@@ -362,13 +365,13 @@ do_mgL <- casts_depths %>%
 do_mgL <- left_join(do_mgL, thermo, by="DateTime")
 
 do_mgL <- do_mgL %>% 
-  mutate(epi_DO = ifelse(is.na(epi_bottomg_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                         ifelse(epi_bottomg_depth_m == 0.1, DO_0.1,
-                                ifelse(epi_bottomg_depth_m == 1.6, (DO_0.1*vol_depths$Vol_m3[1]+DO_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                       ifelse(epi_bottomg_depth_m == 3.8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                              ifelse(epi_bottomg_depth_m == 5, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                     ifelse(epi_bottomg_depth_m == 6.2, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                            ifelse(epi_bottomg_depth_m == 8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
+  mutate(epi_DO = ifelse(is.na(epi_bottom_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
+                         ifelse(epi_bottom_depth_m == 0.1, DO_0.1,
+                                ifelse(epi_bottom_depth_m == 1.6, (DO_0.1*vol_depths$Vol_m3[1]+DO_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
+                                       ifelse(epi_bottom_depth_m == 3.8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
+                                              ifelse(epi_bottom_depth_m == 5, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
+                                                     ifelse(epi_bottom_depth_m == 6.2, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
+                                                            ifelse(epi_bottom_depth_m == 8, ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
   mutate(hypo_DO = ifelse(is.na(hypo_top_depth_m), ((DO_0.1*vol_depths$Vol_m3[1])+(DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
                           ifelse(hypo_top_depth_m == 1.6, ((DO_1.6*vol_depths$Vol_m3[2])+(DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
                                  ifelse(hypo_top_depth_m == 3.8, ((DO_3.8*vol_depths$Vol_m3[3])+(DO_5.0*vol_depths$Vol_m3[4])+(DO_6.2*vol_depths$Vol_m3[5])+(DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
@@ -394,7 +397,7 @@ final_do_mgL <- do_mgL %>%
 hypo_do_mgL <- final_do_mgL %>% 
   filter(Depth == "Hypo") %>% 
   mutate(anoxia = ifelse(VW_DO_mgL < 1.0, 1, 0)) %>% 
-  mutate(anoxia_time_d = 0) 
+  mutate(anoxia_time_d = 0)
 
 for (i in 1:length(hypo_do_mgL$DateTime)){
   if (hypo_do_mgL$anoxia[i] == 1){
@@ -408,10 +411,15 @@ for (i in 1:length(hypo_do_mgL$DateTime)){
 # Plot
 ggplot(hypo_do_mgL,mapping=aes(x=DateTime,y=anoxia_time_d))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=0.75)+
   geom_point(size=2)+
   xlab("")+
@@ -419,7 +427,7 @@ ggplot(hypo_do_mgL,mapping=aes(x=DateTime,y=anoxia_time_d))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   theme_classic(base_size = 15)
 
-ggsave("./Figs/SI_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
+ggsave("./Figs/Fig_S7_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
 
 ## Plot model results by oxic vs. anoxic waters in the hypolimnion
 doc_model_oxy <- left_join(hypo_do_mgL,doc_processing,by="DateTime") %>% 
@@ -527,18 +535,18 @@ chla_ugL <- flora_depths %>%
   select(DateTime,new_depth,TotalConc_ugL) %>% 
   mutate(TotalConc_ugL = as.numeric(TotalConc_ugL)) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = new_depth, values_from = TotalConc_ugL, values_fil = NA, values_fn = mean, names_prefix = "Chla_")
+  pivot_wider(names_from = new_depth, values_from = TotalConc_ugL, values_fill = NA, values_fn = mean, names_prefix = "Chla_")
 
 chla_ugL <- left_join(chla_ugL, thermo, by="DateTime")
 
 chla_ugL <- chla_ugL %>% 
-  mutate(epi_Chla = ifelse(is.na(epi_bottomg_depth_m), ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6])+(Chla_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                           ifelse(epi_bottomg_depth_m == 0.1, Chla_0.1,
-                                  ifelse(epi_bottomg_depth_m == 1.6, (Chla_0.1*vol_depths$Vol_m3[1]+Chla_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                         ifelse(epi_bottomg_depth_m == 3.8, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                                ifelse(epi_bottomg_depth_m == 5, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                       ifelse(epi_bottomg_depth_m == 6.2, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                              ifelse(epi_bottomg_depth_m == 8, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
+  mutate(epi_Chla = ifelse(is.na(epi_bottom_depth_m), ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6])+(Chla_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
+                           ifelse(epi_bottom_depth_m == 0.1, Chla_0.1,
+                                  ifelse(epi_bottom_depth_m == 1.6, (Chla_0.1*vol_depths$Vol_m3[1]+Chla_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
+                                         ifelse(epi_bottom_depth_m == 3.8, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
+                                                ifelse(epi_bottom_depth_m == 5, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
+                                                       ifelse(epi_bottom_depth_m == 6.2, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
+                                                              ifelse(epi_bottom_depth_m == 8, ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
   mutate(hypo_Chla = ifelse(is.na(hypo_top_depth_m), ((Chla_0.1*vol_depths$Vol_m3[1])+(Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6])+(Chla_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
                             ifelse(hypo_top_depth_m == 1.6, ((Chla_1.6*vol_depths$Vol_m3[2])+(Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6])+(Chla_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
                                    ifelse(hypo_top_depth_m == 3.8, ((Chla_3.8*vol_depths$Vol_m3[3])+(Chla_5.0*vol_depths$Vol_m3[4])+(Chla_6.2*vol_depths$Vol_m3[5])+(Chla_8.0*vol_depths$Vol_m3[6])+(Chla_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
@@ -553,10 +561,15 @@ chla_plot <- chla_ugL %>%
   drop_na(epi_Chla,hypo_Chla) %>% 
   ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(mapping=aes(x=DateTime,y=epi_Chla,color="Epi"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=epi_Chla,color="Epi"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=hypo_Chla,color="Hypo"),size=1)+
@@ -586,10 +599,15 @@ inflow_plot <- inflow_daily %>%
   na.omit(mean) %>% 
   ggplot(mapping=aes(x=DateTime,y=mean))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=1)+
   geom_point(size=2)+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
@@ -618,7 +636,7 @@ wtr_d %>%
 ggarrange(temp_plot,do_plot,chla_plot,inflow_plot,ncol=1,nrow=4,common.legend = TRUE, labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig4_EnvParameters.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig6_EnvParameters.jpg",width=10,height=12,units="in",dpi=320)
   
 ###############################################################################
 ## Load in met data - shortwave radiation and rainfall
@@ -646,10 +664,15 @@ vw_do_plot <- do_mgL %>%
   drop_na(epi_DO,hypo_DO) %>% 
   ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=epi_DO,color="Epi"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=hypo_DO,color="Hypo"),size=1)+
@@ -666,10 +689,15 @@ thermo_plot <- thermo %>%
   drop_na(thermo.depth) %>% 
   ggplot(mapping=aes(x=DateTime,y=-thermo.depth))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_hline(yintercept = -0.1, linetype="dotted",color="darkgrey")+
   geom_hline(yintercept = -1.6, linetype="dotted",color="darkgrey")+
   geom_hline(yintercept = -3.8, linetype="dotted",color="darkgrey")+
@@ -687,10 +715,15 @@ thermo_plot <- thermo %>%
 rain_plot <- met_daily %>% 
   ggplot(mapping=aes(x=DateTime,y=rain_tot_mm))+ 
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=1)+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
@@ -701,10 +734,15 @@ rain_plot <- met_daily %>%
 sw_plot <- met_daily %>% 
   ggplot(mapping=aes(x=DateTime,y=ShortwaveRadiationUp_Average_W_m2))+ 
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=1)+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
@@ -715,7 +753,7 @@ sw_plot <- met_daily %>%
 ggarrange(vw_do_plot,thermo_plot,rain_plot,sw_plot,ncol=1,nrow=4,common.legend = TRUE, labels = c("A.","B.","C.","D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_WaterCol_MetParameters.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S4_WaterCol_MetParameters.jpg",width=10,height=12,units="in",dpi=320)
 
 ###############################################################################
 ## Format and add thermocline depth as a potential predictor variable, too

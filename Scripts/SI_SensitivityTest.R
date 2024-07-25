@@ -41,40 +41,40 @@ p74_doc_inputs_g <- read.csv("./Data/26Apr24_final_doc_inputs.csv") %>%
 ###############################################################################
 ## Calculate model results for p=94
 # Calculate processing for epi
-doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # DOC epi processing for each time point
-doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
+doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1))) # DOC epi processing for each time point
+doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
 
 p = 0.94 # For sensitivity test
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
   }
 }
 
-doc_hypo_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
-doc_hypo_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
+doc_hypo_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
+doc_hypo_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_hypo_process_g[i,j] = doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_hypo_process_mgL[i,j] = (doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j])/hypo_vol[i,j]
   }
 }
 
 ### Average across model runs and calculate sd for reach of the various inputs and for processing
-doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_box_full$DateTime),ncol=20))
+doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_inflow_full$V1),ncol=20))
 
 colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
                             'sd_doc_inflow_g',
@@ -97,7 +97,7 @@ colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
                             'mean_doc_hypo_process_mgL',
                             'sd_doc_hypo_process_mgL')
 
-for (i in 1:length(doc_box_full$DateTime)){
+for (i in 1:length(doc_inflow_full$V1)){
   doc_inputs_g$mean_doc_inflow_g[i] = mean(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
   doc_inputs_g$sd_doc_inflow_g[i] = sd(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
   
@@ -145,40 +145,40 @@ write.csv(p94_final_doc_inputs_g, "./Data/p94_final_doc_inputs.csv",row.names=FA
 ###############################################################################
 ## Calculate model results for p=54
 # Calculate processing for epi
-doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # DOC epi processing for each time point
-doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
+doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1))) # DOC epi processing for each time point
+doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
 
 p = 0.54 # For sensitivity test
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
   }
 }
 
-doc_hypo_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
-doc_hypo_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
+doc_hypo_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
+doc_hypo_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$V1)))
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_hypo_process_g[i,j] = doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
-  for (i in 1:length(doc_box_full$DateTime)){
+  for (i in 1:length(doc_inflow_full$V1)){
     doc_hypo_process_mgL[i,j] = (doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j])/hypo_vol[i,j]
   }
 }
 
 ### Average across model runs and calculate sd for reach of the various inputs and for processing
-doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_box_full$DateTime),ncol=20))
+doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_inflow_full$V1),ncol=20))
 
 colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
                             'sd_doc_inflow_g',
@@ -201,7 +201,7 @@ colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
                             'mean_doc_hypo_process_mgL',
                             'sd_doc_hypo_process_mgL')
 
-for (i in 1:length(doc_box_full$DateTime)){
+for (i in 1:length(doc_inflow_full$V1)){
   doc_inputs_g$mean_doc_inflow_g[i] = mean(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
   doc_inputs_g$sd_doc_inflow_g[i] = sd(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
   

@@ -167,15 +167,16 @@ docvinflow_all <- doc_100 %>%
 combine <- ggarrange(docvinflow,docvinflow_all,nrow=1,ncol=2,labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-summary(doc_lm)
 ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
 
 doc_lm <- lm(DOC_mgL ~ mean, data = doc_100)
 
+summary(doc_lm)
+
 # Load in bathymetric data from EDI
 # From EDI: https://portal.edirepository.org/nis/mapbrowse?packageid=edi.1254.1
 # Last downloaded: 12 Apr 2024
-#i nUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/1254/1/f7fa2a06e1229ee75ea39eb586577184" 
+# inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/1254/1/f7fa2a06e1229ee75ea39eb586577184" 
 # infile1 <- paste0(getwd(),"/Data/bathy_summary_stats.csv")
 # download.file(inUrl1,infile1,method="curl")
 bathy_data <- read.csv("./Data/bathy_summary_stats.csv", header=T) %>% 
@@ -340,15 +341,24 @@ doc_wgt <- doc_wgt %>%
 ## Save for ARIMA modeling
 write.csv(doc_wgt, "./Data/EpiHypo_DOC.csv",row.names=FALSE)
 
+## Load, as needed
+#doc_wgt <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
+#  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
 ## Plot vol weighted epi and hypo [DOC] and inflow [DOC]
 vw_epi <- doc_wgt %>% 
   filter(Loc == "Epi") %>% 
   ggplot(mapping=aes(x=DateTime,y=DOC_mgL))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=0.75,color="#7EBDC2")+
   geom_point(size=2,color="#7EBDC2")+
   xlab("")+
@@ -361,10 +371,15 @@ vw_hypo <- doc_wgt %>%
   filter(Loc == "Hypo") %>% 
   ggplot(mapping=aes(x=DateTime,y=DOC_mgL))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=0.75,color="#393E41")+
   geom_point(size=2,color="#393E41")+
   xlab("")+
@@ -377,10 +392,15 @@ inflow_doc <- doc_wgt %>%
   filter(Loc == "Inflow") %>% 
   ggplot(mapping=aes(x=DateTime,y=DOC_mgL))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=0.75,color="#F0B670")+
   geom_point(size=2,color="#F0B670")+
   xlab("")+
@@ -799,10 +819,15 @@ doc_model_timepoints <- left_join(doc_box,final_doc_inputs_g,"DateTime")
 ## Plot inputs/outputs to the Epi DOC model
 epi_inflow <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=((mean_doc_inflow_g*0.74/1000)-(sd_doc_inflow_g*0.74/1000)),ymax=((mean_doc_inflow_g*0.74/1000)+(sd_doc_inflow_g*0.74/1000)),fill="Inflow"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.74/1000),color="Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.74/1000),color="Inflow"))+
@@ -820,10 +845,15 @@ epi_inflow <- ggplot(final_doc_inputs_g)+
 
 epi_outflow <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_epi_outflow_g/1000)-(sd_doc_epi_outflow_g/1000),ymax=(mean_doc_epi_outflow_g/1000)+(sd_doc_epi_outflow_g/1000),fill="Epi Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
@@ -838,10 +868,15 @@ epi_outflow <- ggplot(final_doc_inputs_g)+
 
 epi_change <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_hline(yintercept = 0, linetype="dashed")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_dt_epi_g/1000-sd_doc_dt_epi_g/1000,ymax=mean_doc_dt_epi_g/1000+sd_doc_dt_epi_g/1000,fill="Epi DOC/dt"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_dt_epi_g/1000,color="Epi DOC/dt"))+
@@ -860,10 +895,15 @@ epi_change <- ggplot(final_doc_inputs_g)+
 
 epi_internal <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_hline(yintercept = 0, linetype="dashed")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_g/1000-sd_doc_epi_process_g/1000,ymax=mean_doc_epi_process_g/1000+sd_doc_epi_process_g/1000,fill="Epi Internal"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi Internal"))+
@@ -880,15 +920,20 @@ epi_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/26apr24_SI_Epi_model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S2_Epi_model.jpg",width=9,height=12,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
 hypo_inflow <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=((mean_doc_inflow_g*0.26/1000)-(sd_doc_inflow_g*0.26/1000)),ymax=((mean_doc_inflow_g*0.26/1000)+(sd_doc_inflow_g*0.26/1000)),fill="Inflow"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
@@ -903,10 +948,15 @@ hypo_inflow <- ggplot(final_doc_inputs_g)+
 
 hypo_outflow <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
@@ -921,10 +971,15 @@ hypo_outflow <- ggplot(final_doc_inputs_g)+
 
 hypo_change <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_hline(yintercept = 0, linetype="dashed")+
   geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_dt_hypo_g/1000-sd_doc_dt_hypo_g/1000,ymax=mean_doc_dt_hypo_g/1000+sd_doc_dt_hypo_g/1000,fill="Hypo DOC/dt"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_dt_hypo_g/1000,color="Hypo DOC/dt"))+
@@ -943,10 +998,15 @@ hypo_change <- ggplot(final_doc_inputs_g)+
 
 hypo_internal <- ggplot(final_doc_inputs_g)+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
+  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_hline(yintercept = 0, linetype="dashed")+
   geom_ribbon(mapping=aes(x=DateTime,ymax=(mean_doc_hypo_process_g-sd_doc_hypo_process_g)/1000,ymin=(mean_doc_hypo_process_g+sd_doc_hypo_process_g)/1000,fill="Hypo Internal"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo Internal"))+
@@ -963,7 +1023,7 @@ hypo_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/26Apr24_SI_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S3_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ### Thinking about ways to visualize the 'big picture'
