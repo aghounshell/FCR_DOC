@@ -70,6 +70,7 @@ epi_distribution <- doc_proc_g %>%
   geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
   xlab(expression(paste("Internal DOC (kg d"^-1*")")))+
   ylab("")+
+  xlim(-242,255)+
   scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B"))+
   theme_ridges()+
   theme(legend.position = "none")
@@ -102,7 +103,7 @@ model_summary <- all_summary %>%
   geom_hline(mapping=aes(yintercept=0))+
   ylab(expression(paste("Mean DOC (kg d"^-1*")")))+
   scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B", "#393E41"))+
-  scale_x_discrete("Model Parameter",labels=c("Entr.","Inflow",expression(atop("Hypo.", "Outflow")),expression(atop("Epi.", "Outflow")),
+  scale_x_discrete("Model Term",labels=c("Entr.","Inflow",expression(atop("Hypo.", "Outflow")),expression(atop("Epi.", "Outflow")),
                                               expression(atop("Epi.", "Internal")),expression(atop("Hypo.", "Internal"))))+
   theme_bw(base_size = 15) +
   theme(legend.title=element_blank())+
