@@ -653,11 +653,12 @@ met <- read.csv("./Data/FCR_Met_final_2015_2021.csv",header=T) %>%
 
 ## Average to daily
 met_daily <- met %>% 
-  mutate(DateTime = format(as.POSIXct(DateTime, "%Y-%m-%d"),"%Y-%m-%d")) %>% 
+  mutate(DateTime = format(as.POSIXct(DateTime, "%Y-%m-%d"),"%Y-%m-%d", tz="EST")) %>% 
   mutate(DateTime = as.POSIXct(DateTime, "%Y-%m-%d", tz = "EST")) %>% 
   group_by(DateTime) %>% 
   dplyr::summarise(rain_tot_mm = sum(Rain_Total_mm, na.rm = TRUE),
-            ShortwaveRadiationUp_Average_W_m2 = mean(ShortwaveRadiationUp_Average_W_m2, na.rm = TRUE))
+            ShortwaveRadiationUp_Average_W_m2 = mean(ShortwaveRadiationUp_Average_W_m2, na.rm = TRUE)) %>% 
+  filter(ShortwaveRadiationUp_Average_W_m2 < 450) # Remove 2018-04-05 - maintenance and only measured afternoon values!
 
 ## Then plot total rainfall and shortwave radiation with thermocline depth and DO
 ## Plot timeseries of thermocline depth for SI
