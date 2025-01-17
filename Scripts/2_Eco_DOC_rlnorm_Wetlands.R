@@ -77,7 +77,8 @@ inflow <- inflow %>%
 # Average inflow by day and constrain to study period: 2017-2021
 inflow_daily <- inflow %>% 
   group_by(DateTime) %>% 
-  summarize_at(vars("WVWA_Flow_cms"),funs(mean(.,na.rm=TRUE),sd))
+  summarize_at(vars("WVWA_Flow_cms"),funs(mean(.,na.rm=TRUE),sd)) %>% 
+  rename(mean_flow_cms=mean)
 
 ## Save daily inflow for ARIMA modeling
 write.csv(inflow_daily, "./Data/inflow_daily.csv",row.names=FALSE)
@@ -117,6 +118,64 @@ for (i in 1:length(inflow_daily_full$DateTime)){
   }
 }
 
+### Thinking about contribution of wetlands inflow (Falling Creek)
+## Load in discrete discharge measurements from weir vs. wetlands for 2019-2021
+#inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/454/5/555117021ec0697034fd6dec7f6f7979"
+#infile1 <- paste0(getwd(),"/Data/ManualDischarge_2019_2021.csv")
+#download.file(inUrl1,infile1,method="curl")
+
+discrete_q <- read.csv("./Data/ManualDischarge_2019_2021.csv",header=T) %>% 
+  mutate(DateTime = as.POSIXct(strptime(Date, "%Y-%m-%d", tz="EST"))) %>% 
+  filter(Reservoir=="FCR" & Site==200) %>% 
+  select(DateTime,Site,Flow_cms) %>% 
+  left_join(inflow_daily,by="DateTime") %>% 
+  drop_na(mean_flow_cms) %>% 
+  mutate(Flow_cms = ifelse(Flow_cms==0,1e-10,Flow_cms)) %>% 
+  mutate(FC_contribution = Flow_cms/(Flow_cms+mean_flow_cms))
+
+## Come up with an exponential relationship to estimate wetlands inflow
+fc_flow_mod <- lm(log10(Flow_cms)~log10(mean_flow_cms),data=discrete_q)
+
+## Come up with test data to plot - using max and min from weir data
+fc_flow_test <- data.frame(weir_flow=seq(min(inflow_daily$mean_flow_cms,na.rm=TRUE),max(inflow_daily$mean_flow_cms,na.rm=TRUE),len=1000))
+
+fc_flow_test$wetlands <- 10^(fc_flow_mod$coefficients[2]*log10(fc_flow_test$weir_flow)+fc_flow_mod$coefficients[1])
+
+## Create daily times series of wetlands (Falling Creek Inflow) - based on weir inflow
+FC_flow_daily_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+FC_flow_daily_full <- FC_flow_daily_full %>% 
+  dplyr::rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+
+FC_flow_daily_full <- left_join(FC_flow_daily_full, inflow_daily,by="DateTime")
+
+FC_flow_daily_full <- FC_flow_daily_full %>% 
+  mutate(fc_flow_cms = 10^(fc_flow_mod$coefficients[2]*log10(mean_flow_cms)+fc_flow_mod$coefficients[1]),
+         fc_flow_cms_sd = sqrt((sd^2)+(1.771^2))/2) %>% # Add error from weir discharge measurements + wetlands flow modeled error
+  select(DateTime,fc_flow_cms,fc_flow_cms_sd) 
+
+FC_flow_daily_full <- FC_flow_daily_full %>% 
+  mutate(fc_flow_cms_sd = ifelse(is.na(fc_flow_cms_sd),mean(FC_flow_daily_full$fc_flow_cms_sd,na.rm=TRUE),fc_flow_cms_sd))
+
+# Create matrix of random variables from mean and total_sd
+fc_flow_model_input <- as.data.frame(matrix(data = NA, ncol=1000,nrow=length(FC_flow_daily_full$DateTime)))
+
+# Use rlnorm to constrain distribution to be >0
+# See here: https://msalganik.wordpress.com/2017/01/21/making-sense-of-the-rlnorm-function-in-r/comment-page-1/
+for (i in 1:length(FC_flow_daily_full$DateTime)){
+  if(is.na(FC_flow_daily_full$fc_flow_cms[i])){
+    fc_flow_model_input[i,1:1000] <- NA
+  } else{
+    # Find location and shape for rlnorm using the mean and sd
+    m <- FC_flow_daily_full$fc_flow_cms[i]
+    s <- FC_flow_daily_full$fc_flow_cms_sd[i]/2
+    location <- log(m^2 / sqrt(s^2 + m^2))
+    shape <- sqrt(log(1 + (s^2 / m^2)))
+    
+    # Calculate distribution for each day
+    fc_flow_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
+  }
+}
+
 ### Load DOC data ----
 # From EDI: https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=199&revision=10
 # Last downloaded: 1 Mar 2024
@@ -129,11 +188,19 @@ chem <- read.csv("./Data/chemistry_2013_2021.csv", header=T) %>%
   select(Reservoir:DIC_mgL) %>%
   dplyr::filter(Reservoir=="FCR") %>%
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))%>% 
-  filter(DateTime >= as.POSIXct("2017-01-01") & DateTime < as.POSIXct("2022-01-01"))
+  filter(DateTime >= as.POSIXct("2017-01-01") & DateTime < as.POSIXct("2022-01-01")) %>% 
+  select(-Reservoir)
 
-# Separate into inflow - keep all for Q-DOC relationship
+# Separate into weir inflow
 chem_100 <- chem %>% 
   filter(Site == 100) %>% 
+  drop_na(DOC_mgL) %>% 
+  group_by(DateTime) %>% 
+  summarise_all(mean)
+
+# And into wetlands inflow
+chem_200 <- chem %>% 
+  filter(Site ==200) %>% 
   drop_na(DOC_mgL) %>% 
   group_by(DateTime) %>% 
   summarise_all(mean)
@@ -149,10 +216,10 @@ chem_50 <- chem %>%
 doc_100 <- left_join(chem_100,inflow_daily,by="DateTime") %>% 
   mutate(year = year(DateTime),
          DOC_mgL = ifelse(DOC_mgL==0,0.01,DOC_mgL)) %>% 
-  drop_na(mean)
+  drop_na(mean_flow_cms)
 
 ## Define C-Q relationship: use log relationship
-cq_mod_log <- lm(DOC_mgL~log10(mean),data=doc_100)
+cq_mod_log <- lm(DOC_mgL~log10(mean_flow_cms),data=doc_100)
 
 docvinflow <- doc_100 %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
@@ -180,6 +247,42 @@ combine <- ggarrange(docvinflow,docvinflow_all,nrow=1,ncol=2,labels = c("A.", "B
                      font.label=list(face="plain",size=15))
 
 ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
+
+## Then check relationship with flow and DOC at Falling Creek- use to estimate DOC concentration at site 200
+discrete_q <- discrete_q %>% 
+  left_join(chem_200,by=c("DateTime","Site"))
+
+fc_doc_mod <- lm(DOC_mgL~Flow_cms,discrete_q)
+
+fc_doc_test <- data.frame(fc_flow=seq(min(FC_flow_daily_full$fc_flow_cms,na.rm=TRUE),0.16,len=1000))
+
+fc_doc_test$fc_doc <- fc_doc_mod$coefficients[2]*(fc_doc_test$fc_flow)+fc_doc_mod$coefficients[1]
+
+chem_200 <- chem_200 %>% 
+  left_join(FC_flow_daily_full,by="DateTime")
+
+fc_flow_fig <- ggplot(discrete_q,mapping=aes(x=mean_flow_cms,y=Flow_cms))+
+  geom_point(size=3)+
+  geom_line(fc_flow_test,mapping=aes(x=weir_flow,y=wetlands),linewidth=1,color="#393E41")+
+  xlab(expression(paste("Tunnel Branch (weir) Flow (m"^3*"s"^-1*")")))+
+  ylab(expression(paste("Falling Creek Flow (m"^3*"s"^-1*")")))+
+  xlim(0,0.16)+
+  ylim(0,0.16)+
+  theme_classic(base_size=15)
+
+fc_doc_fig <- ggplot(discrete_q,mapping=aes(x=Flow_cms,y=DOC_mgL,color="Observed Flow"))+
+  geom_point(size=3)+
+  geom_point(chem_200,mapping=aes(x=fc_flow_cms,y=DOC_mgL,color="Modeled Flow"),size=3)+
+  geom_line(fc_doc_test,mapping=aes(x=fc_flow,y=fc_doc,color="Observed Flow"),linewidth=1)+
+  scale_color_manual(values=c("#7EBDC2","#393E41"),name="")+
+  xlab(expression(paste("Falling Creek Flow (m"^3*"s"^-1*")")))+
+  ylab(expression(paste("DOC (mg L"^-1*")")))+
+  theme_classic(base_size=15)+
+  theme(legend.position = "top")
+
+ggarrange(fc_flow_fig,fc_doc_fig,nrow=1,ncol=2,labels = c("A.", "B."),font.label=list(face="plain",size=15))
+
+ggsave("./Figs/SI_DOCvInflow_FallingCreek.png",dpi=800,width=11,height=5)
 
 # Load in bathymetric data from EDI
 # From EDI: https://portal.edirepository.org/nis/mapbrowse?packageid=edi.1254.1
@@ -258,7 +361,7 @@ for (i in 1:7){
   vol_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
-## Create boot-strapped parameters for DOC inflow - using MDL for the SD
+## Create boot-strapped parameters for DOC inflow (weir) - using MDL for the SD
 doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 doc_inflow_full <- doc_inflow_full %>% 
   rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
@@ -285,6 +388,35 @@ for (i in 1:length(doc_inflow_full$DateTime)){
   
   # Calculate distribution for each depth
   doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
+}
+
+## Calculate DOC inflow (Falling Creek) - from Site 200
+fc_doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+fc_doc_inflow_full <- fc_doc_inflow_full %>% 
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+fc_doc_inflow_full <- left_join(fc_doc_inflow_full,chem_200,by="DateTime")
+
+## Use Q-DOC linear model to fill in missing DOC inflow data
+## Following fc_doc_mod from above
+for (i in 1:length(fc_doc_inflow_full$DateTime)){
+  if (is.na(fc_doc_inflow_full$DOC_mgL[i])){
+    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_mod$coefficients[2]*FC_flow_daily_full$fc_flow_cms[i]+fc_doc_mod$coefficients[1]
+  } else {
+    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_inflow_full$DOC_mgL[i]
+  }
+}
+
+fc_doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(fc_doc_inflow_full$DateTime)))
+
+for (i in 1:length(fc_doc_inflow_full$DateTime)){
+  # Find location and shape for rlnorm using the mean and sd
+  m <- fc_doc_inflow_full$DOC_mgL[i]
+  s <- sqrt((0.11^2)+(0.871^2))/2 ## Add in measured (DOC MDL) and C-Q model
+  location <- log(m^2 / sqrt(s^2 + m^2))
+  shape <- sqrt(log(1 + (s^2 / m^2)))
+  
+  # Calculate distribution for each depth
+  fc_doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
 ###############################################################################
@@ -335,17 +467,19 @@ doc_wgt <- doc_wgt %>%
                                                     ifelse(hypo_top_depth_m == 8, ((DOC_8*vol_depths$Vol_m3[6])+(DOC_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
                                                            ifelse(hypo_top_depth_m == 9, (DOC_9*vol_depths$Vol_m3[7])/sum(vol_depths$Vol_m3[7]),NA)))))))
 
-doc_wgt <- full_join(doc_wgt,chem_100, by = "DateTime")
+doc_wgt <- full_join(doc_wgt,chem_100 %>% select(DateTime,DOC_mgL) %>% rename(weir_DOC_mgL=DOC_mgL), by = "DateTime") %>% 
+  full_join(chem_200 %>% select(DateTime,DOC_mgL) %>% rename(fc_DOC_mgL=DOC_mgL),by="DateTime")
 
 doc_wgt <- doc_wgt %>% 
-  select(DateTime, doc_epi_mgL, doc_hypo_mgL, DOC_mgL) %>% 
+  select(DateTime, doc_epi_mgL, doc_hypo_mgL, weir_DOC_mgL, fc_DOC_mgL) %>% 
   arrange(DateTime) %>% 
   pivot_longer(!DateTime, names_to = "Loc", values_to = "DOC_mgL")
 
 doc_wgt <- doc_wgt %>% 
   mutate(Loc = ifelse(Loc == "doc_epi_mgL", "Epi",
                       ifelse(Loc == "doc_hypo_mgL", "Hypo", 
-                             ifelse(Loc== "DOC_mgL", "Inflow", NA)))) %>% 
+                             ifelse(Loc== "weir_DOC_mgL", "Weir",
+                                    ifelse(Loc=="fc_DOC_mgL","FC",NA))))) %>% 
   drop_na()
 
 # Separate by year, too
@@ -403,8 +537,8 @@ vw_hypo <- doc_wgt %>%
   theme_classic(base_size = 15)
 
 inflow_doc <- doc_wgt %>% 
-  filter(Loc == "Inflow") %>% 
-  ggplot(mapping=aes(x=DateTime,y=DOC_mgL))+
+  filter(Loc == "Weir" | Loc == "FC") %>% 
+  ggplot(mapping=aes(x=DateTime,y=DOC_mgL,color=Loc))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -415,24 +549,28 @@ inflow_doc <- doc_wgt %>%
   annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_line(size=0.75,color="#F0B670")+
-  geom_point(size=2,color="#F0B670")+
+  geom_line(size=0.75)+
+  geom_point(size=2)+
+  scale_color_manual(values=c("#E7804B","#F0B670"),name="")+
   xlab("")+
   ylab(expression(paste("Inflow DOC (mg L"^-1*")")))+
   ylim(0,8)+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  theme_classic(base_size = 15)
+  theme_classic(base_size = 15)+
+  theme(legend.position="top")
 
 ggarrange(vw_epi,vw_hypo,inflow_doc,nrow=3,ncol=1,labels = c("A.", "B.", "C."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig3_VW_DOC.jpg",width=7,height=10,units="in",dpi=320)
+ggsave("./Figs/Fig3_VW_DOC_R1.jpg",width=7,height=10,units="in",dpi=320)
+
+order <- c("Epi","Hypo","Weir","FC")
 
 all_box <- doc_wgt %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  ggplot(mapping=aes(x=Loc,y=DOC_mgL,fill=Loc))+
+  ggplot(mapping=aes(x=factor(Loc,order),y=DOC_mgL,fill=Loc))+
   geom_boxplot(size=0.8,alpha=0.5)+
-  scale_fill_manual(breaks=c('Epi','Hypo','Inflow'),values=c("#7EBDC2","#393E41","#F0B670"))+
+  scale_fill_manual(breaks=c('Epi','Hypo','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
   xlab("")+
   ylab(expression(paste("DOC (mg L"^-1*")")))+
   theme_classic(base_size = 15)+
@@ -441,9 +579,9 @@ all_box <- doc_wgt %>%
 ## Plot boxplots by year
 year_box <- doc_wgt %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>%
-  ggplot(mapping=aes(x=as.character(year),y=DOC_mgL,fill=Loc))+
+  ggplot(mapping=aes(x=as.character(year),y=DOC_mgL,fill=factor(Loc,order)))+
   geom_boxplot(size=0.8,alpha=0.5)+
-  scale_fill_manual(breaks=c('Epi','Hypo','Inflow'),values=c("#7EBDC2","#393E41","#F0B670"))+
+  scale_fill_manual(breaks=c('Epi','Hypo','Weir',"FC"),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
   xlab("Year")+
   ylab(expression(paste("DOC (mg L"^-1*")")))+
   ylim(0,8)+
@@ -453,7 +591,7 @@ year_box <- doc_wgt %>%
 ggarrange(year_box, ggarrange(all_box, ncol = 2, labels = c("B."),font.label=list(face="plain",size=15)), 
           nrow = 2, labels = "A.", font.label=list(face="plain",size=15)) 
 
-ggsave("./Figs/SI_DOC_Boxplots.png",dpi=800,width=8,height=7)
+ggsave("./Figs/SI_DOC_Boxplots_R1.png",dpi=800,width=8,height=7)
 
 ## Calculate stats for SI:
 doc_stats <- doc_wgt %>% 
@@ -463,7 +601,9 @@ doc_stats <- doc_wgt %>%
             max = max(DOC_mgL),
             median = median(DOC_mgL),
             mean = mean(DOC_mgL),
-            sd = sd(DOC_mgL))
+            sd = sd(DOC_mgL)) %>% 
+  mutate(year="All") %>% 
+  relocate(year, .after=Loc)
 
 doc_stats_year <- doc_wgt %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
@@ -474,7 +614,9 @@ doc_stats_year <- doc_wgt %>%
             mean = mean(DOC_mgL),
             sd = sd(DOC_mgL))
 
-write.csv(doc_stats_year,'./Figs/doc_stats_year.csv')
+all_stats <- rbind(doc_stats,doc_stats_year)
+
+write.csv(all_stats,'./Figs/doc_stats_R1.csv')
 
 ###############################################################################
 ## Have bootstrapped inputs (n=1000) for:
