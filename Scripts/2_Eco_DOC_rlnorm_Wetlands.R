@@ -639,7 +639,9 @@ for (j in 1:1000){
   }
 }
 
-## Calculate mass of inflow - for hypo and epi
+write.csv(doc_lake_mass, "./Data/doc_lake_mass.csv",row.names=FALSE)
+
+## Calculate total mass of inflow from weir
 doc_inflow_mass <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
 
 for (j in 1:1000){
@@ -650,13 +652,24 @@ for (j in 1:1000){
 
 write.csv(doc_inflow_mass, "./Data/doc_inflow_mass.csv",row.names=FALSE)
 
+## Calculate total mass of inflow from FC
+fc_doc_inflow_mass <- as.data.frame(matrix(data=NA,ncol=1000,nrow=length(fc_doc_inflow_full$DateTime)))
+
+for (j in 1:1000){
+  for (i in 1:length(fc_doc_inflow_full$DateTime)){
+    fc_doc_inflow_mass[i,j] <- as.numeric(fc_doc_inflow_input[i,j])*as.numeric(fc_flow_model_input[i,j])*60*60*24
+  }
+}
+
+write.csv(fc_doc_inflow_mass,"./Data/fc_doc_inflow_mass.csv")
+
 ### Calculate outflow from epi and hypo ###
-# Epi outflow = inflow * [DOC] at 0.1 m = g/d
+# Epi outflow = (weir inflow + FC inflow) * [DOC] at 0.1 m = g/d
 doc_epi_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_epi_mass_outflow[i,j] <- inflow_model_input[i,j]*doc_lake_model_input[i,j,1]*60*60*24
+    doc_epi_mass_outflow[i,j] <- (inflow_model_input[i,j] + fc_flow_model_input[i,j])*doc_lake_model_input[i,j,1]*60*60*24
   }
 }
 
@@ -865,17 +878,17 @@ write.csv(doc_entr, "./Data/doc_entr.csv",row.names=FALSE)
 doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # DOC epi processing for each time point
 doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
 
-p = 0.74 # From Carey et al. 2018 - percentage of discharge to the epi vs. hypo
+p = 0.74 # From Carey et al. 2018 - percentage of discharge to the epi vs. hypo; assume 100% of FC goes to Epi.
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
+    doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
+    doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
   }
 }
 
@@ -895,10 +908,12 @@ for (j in 1:1000){
 }
 
 ### Average across model runs and calculate sd for reach of the various inputs and for processing
-doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_box_full$DateTime),ncol=20))
+doc_inputs_g <- as.data.frame(matrix(data=NA,nrow=length(doc_box_full$DateTime),ncol=22))
 
 colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
                             'sd_doc_inflow_g',
+                            'mean_doc_fc_inflow_g',
+                            'sd_doc_fc_inflow_g',
                             'mean_doc_hypo_outflow_g',
                             'sd_doc_hypo_outflow_g',
                             'mean_doc_dt_hypo_g',
@@ -921,6 +936,9 @@ colnames(doc_inputs_g) <- c('mean_doc_inflow_g',
 for (i in 1:length(doc_box_full$DateTime)){
   doc_inputs_g$mean_doc_inflow_g[i] = mean(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
   doc_inputs_g$sd_doc_inflow_g[i] = sd(as.numeric(doc_inflow_mass[i,]),na.rm=TRUE)
+  
+  doc_inputs_g$mean_doc_fc_inflow_g[i] = mean(as.numeric(fc_doc_inflow_mass[i,]),na.rm=TRUE)
+  doc_inputs_g$sd_doc_fc_inflow_g[i] = sd(as.numeric(fc_doc_inflow_mass[i,]),na.rm=TRUE)
   
   doc_inputs_g$mean_doc_hypo_outflow_g[i] = mean(as.numeric(doc_hypo_mass_outflow[i,]),na.rm=TRUE)
   doc_inputs_g$sd_doc_hypo_outflow_g[i] = sd(as.numeric(doc_hypo_mass_outflow[i,]),na.rm=TRUE)
@@ -961,10 +979,10 @@ final_doc_inputs_g <- final_doc_inputs_g %>%
   filter(DateTime >= as.POSIXct("2017-01-01"))
 
 ## Save final model output
-write.csv(final_doc_inputs_g, "./Data/26Apr24_final_doc_inputs.csv",row.names=FALSE)
+write.csv(final_doc_inputs_g, "./Data/13Feb25_final_doc_inputs_fc.csv",row.names=FALSE)
 
 ## Load in final model output (as needed!)
-final_doc_inputs_g <- read.csv("./Data/26Apr24_final_doc_inputs.csv") %>% 
+final_doc_inputs_g <- read.csv("./Data/13Feb25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 ## Constrain to sampling days
@@ -987,14 +1005,18 @@ epi_inflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=((mean_doc_inflow_g*0.74/1000)-(sd_doc_inflow_g*0.74/1000)),ymax=((mean_doc_inflow_g*0.74/1000)+(sd_doc_inflow_g*0.74/1000)),fill="Inflow"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.74/1000),color="Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.74/1000),color="Inflow"))+
+  geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_fc_inflow_g/1000)-(sd_doc_fc_inflow_g/1000),ymax=(mean_doc_fc_inflow_g/1000)+(sd_doc_fc_inflow_g/1000),fill="FC Inflow"),alpha=0.5)+
+  geom_line(mapping=aes(x=DateTime,y=mean_doc_fc_inflow_g/1000,color="FC Inflow"))+
+  geom_point(mapping=aes(x=DateTime,y=mean_doc_fc_inflow_g/1000,color="FC Inflow"))+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Inflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
   ylab(expression(paste("External DOC (kg d"^-1*")")))+
   xlab("")+
-  scale_color_manual(breaks=c("Inflow","Hypo Inflow"), values=c("#F0B670","#393E41"))+
-  scale_fill_manual(breaks=c("Inflow","Hypo Inflow"),values=c("#F0B670","#393E41"))+
+  scale_color_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"), values=c("#F0B670","#393E41","#7EBDC2"))+
+  scale_fill_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"),values=c("#F0B670","#393E41","#7EBDC2"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  ylim(0,30)+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
@@ -1018,6 +1040,7 @@ epi_outflow <- ggplot(final_doc_inputs_g)+
   scale_color_manual(breaks=c("Epi Outflow"), values=c("#7EBDC2"))+
   scale_fill_manual(breaks=c("Epi Outflow"),values=c("#7EBDC2"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  ylim(0,100)+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
@@ -1049,7 +1072,9 @@ epi_change <- ggplot(final_doc_inputs_g)+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
 
-epi_internal <- ggplot(final_doc_inputs_g)+
+epi_internal <- final_doc_inputs_g %>% 
+  mutate(sd_doc_epi_process_g = ifelse(sd_doc_epi_process_g>50000,NA,sd_doc_epi_process_g)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1076,7 +1101,7 @@ epi_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S2_Epi_model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S2_Epi_model_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
 hypo_inflow <- ggplot(final_doc_inputs_g)+
@@ -1179,7 +1204,7 @@ hypo_internal <- ggplot(final_doc_inputs_g)+
 ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S3_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S3_Hypo_Model_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ### Thinking about ways to visualize the 'big picture'
@@ -1187,7 +1212,7 @@ ggsave("./Figs/Fig_S3_Hypo_Model.jpg",width=9,height=12,units="in",dpi=320)
 mean_model_timepoints <- final_doc_inputs_g %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<=320) %>% 
-  select(mean_doc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+  select(mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
          mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
          mean_doc_hypo_process_mgL) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
@@ -1210,7 +1235,7 @@ mean_model_timepoints_years <- final_doc_inputs_g %>%
          year = year(DateTime)) %>% 
   filter(doy>=122 & doy<=320) %>% 
   group_by(year) %>% 
-  select(year,mean_doc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+  select(year,mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
          mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
          mean_doc_hypo_process_mgL) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
@@ -1231,6 +1256,6 @@ all_summary <- rbind(mean_model_timepoints,mean_model_timepoints_years)
 
 all_summary <- all_summary[, c("func", "year", "min", "max", "median", "mean", "sd")]
 
-write.csv(all_summary, "./Data/model_summary.csv",row.names=FALSE)
+write.csv(all_summary, "./Data/model_summary_fc.csv",row.names=FALSE)
 
 ###############################################################################
