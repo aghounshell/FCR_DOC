@@ -156,6 +156,14 @@ FC_flow_daily_full <- FC_flow_daily_full %>%
 FC_flow_daily_full <- FC_flow_daily_full %>% 
   mutate(fc_flow_cms_sd = ifelse(is.na(fc_flow_cms_sd),mean(FC_flow_daily_full$fc_flow_cms_sd,na.rm=TRUE),fc_flow_cms_sd))
 
+## Save for visualizations
+FC_flow_out <- left_join(FC_flow_daily_full,discrete_q,by="DateTime") %>% 
+  select(DateTime,Site,Flow_cms,fc_flow_cms) %>% 
+  dplyr::rename(measured_flow_cms=Flow_cms,est_flow_cms=fc_flow_cms)
+
+## Save daily FC inflow for ARIMA modeling
+write.csv(FC_flow_out, "./Data/inflow_daily_fc.csv",row.names=FALSE)
+
 # Create matrix of random variables from mean and total_sd
 fc_flow_model_input <- as.data.frame(matrix(data = NA, ncol=1000,nrow=length(FC_flow_daily_full$DateTime)))
 
@@ -467,8 +475,8 @@ doc_wgt <- doc_wgt %>%
                                                     ifelse(hypo_top_depth_m == 8, ((DOC_8*vol_depths$Vol_m3[6])+(DOC_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
                                                            ifelse(hypo_top_depth_m == 9, (DOC_9*vol_depths$Vol_m3[7])/sum(vol_depths$Vol_m3[7]),NA)))))))
 
-doc_wgt <- full_join(doc_wgt,chem_100 %>% select(DateTime,DOC_mgL) %>% rename(weir_DOC_mgL=DOC_mgL), by = "DateTime") %>% 
-  full_join(chem_200 %>% select(DateTime,DOC_mgL) %>% rename(fc_DOC_mgL=DOC_mgL),by="DateTime")
+doc_wgt <- full_join(doc_wgt,chem_100 %>% select(DateTime,DOC_mgL) %>% dplyr::rename(weir_DOC_mgL=DOC_mgL), by = "DateTime") %>% 
+  full_join(chem_200 %>% select(DateTime,DOC_mgL) %>% dplyr::rename(fc_DOC_mgL=DOC_mgL),by="DateTime")
 
 doc_wgt <- doc_wgt %>% 
   select(DateTime, doc_epi_mgL, doc_hypo_mgL, weir_DOC_mgL, fc_DOC_mgL) %>% 
@@ -487,7 +495,7 @@ doc_wgt <- doc_wgt %>%
   mutate(year = year(DateTime))
 
 ## Save for ARIMA modeling
-write.csv(doc_wgt, "./Data/EpiHypo_DOC.csv",row.names=FALSE)
+write.csv(doc_wgt, "./Data/EpiHypo_Weir_FC_DOC.csv",row.names=FALSE)
 
 ## Load, as needed
 #doc_wgt <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
@@ -1210,9 +1218,10 @@ ggsave("./Figs/Fig_S3_Hypo_Model_FC.jpg",width=9,height=12,units="in",dpi=320)
 ### Thinking about ways to visualize the 'big picture'
 ## Average numbers (May 1 - Nov 15) from 2017-2021
 mean_model_timepoints <- final_doc_inputs_g %>% 
-  mutate(doy = yday(DateTime)) %>% 
+  mutate(doy = yday(DateTime),
+         mean_doc_inflow_g_comb = mean_doc_inflow_g+mean_doc_fc_inflow_g) %>% 
   filter(doy>=122 & doy<=320) %>% 
-  select(mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+  select(mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_inflow_g_comb,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
          mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
          mean_doc_hypo_process_mgL) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
@@ -1232,10 +1241,11 @@ mean_model_timepoints <- mean_model_timepoints %>%
 
 mean_model_timepoints_years <- final_doc_inputs_g %>% 
   mutate(doy = yday(DateTime),
-         year = year(DateTime)) %>% 
+         year = year(DateTime),
+         mean_doc_inflow_g_comb = mean_doc_inflow_g+mean_doc_fc_inflow_g) %>% 
   filter(doy>=122 & doy<=320) %>% 
   group_by(year) %>% 
-  select(year,mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
+  select(year,mean_doc_inflow_g,mean_doc_fc_inflow_g,mean_doc_inflow_g_comb,mean_doc_hypo_outflow_g,mean_doc_dt_hypo_g,mean_doc_entr_g,mean_doc_dt_epi_g,
          mean_doc_epi_outflow_g,mean_doc_epi_process_g,mean_doc_epi_process_mgL,mean_doc_hypo_process_g,
          mean_doc_hypo_process_mgL) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
