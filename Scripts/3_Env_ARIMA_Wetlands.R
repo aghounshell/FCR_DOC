@@ -1235,7 +1235,7 @@ pacf(arima_hypo$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass)
 # Epi
 colnames(arima_epi_scale)
 
-cols <- c(5:13) # UPDATE THIS TO THE ENV. VARIABLES; constrain to TP ONLY for nutrients
+cols <- c(5:10,12:13) # UPDATE THIS TO THE ENV. VARIABLES; constrain to TP ONLY for nutrients; remove WRT (mirrors Inflow)
 sub.final <- NULL
 final <- NULL
 
@@ -1288,8 +1288,8 @@ final <- distinct(final)
 best <- final %>%
   slice(which.min(AICc))
 
-best.vars <- colnames(arima_epi_scale)[combn(cols,4)[,33]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,4)[,33] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_epi_scale)[combn(cols,4)[,24]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,4)[,24] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.p = 2, max.P = 2)
 best.fit
@@ -1326,7 +1326,7 @@ for (i in 1:nrow(good)){
 # Hypo
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only!
+cols <- c(5:7,10,12:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only! and remove WRT!
 sub.final <- NULL
 final <- NULL
 
@@ -1381,8 +1381,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,5)[,45]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,5)[,45] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,5)[,26]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,5)[,26] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 2, max.P = 2)
 best.fit
@@ -1419,7 +1419,7 @@ for (i in 1:nrow(good)){
 ## Epi DOC Processing
 colnames(arima_epi_scale)
 
-cols <- c(5:13) # UPDATE THIS TO THE ENV. VARIABLES - include TP only
+cols <- c(5:10,12:13) # UPDATE THIS TO THE ENV. VARIABLES - include TP only; remove WRT!
 sub.final <- NULL
 final <- NULL
 
@@ -1474,8 +1474,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_epi_scale)[combn(cols,3)[,34]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,3)[,34] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_epi_scale)[combn(cols,3)[,26]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,3)[,26] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
@@ -1512,7 +1512,7 @@ for (i in 1:nrow(good)){
 ## Hypo DOC processing
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only!
+cols <- c(5:7,10,12:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only! and remove WRT!
 sub.final <- NULL
 final <- NULL
 
@@ -1567,8 +1567,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,49]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,3)[,49] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,36]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,3)[,36] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit

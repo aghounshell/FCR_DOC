@@ -17,7 +17,7 @@
 ### Modified: 15 Jan. 2025, A. Hounshell
 ## Following reviewer comments, mainly:
 ## Update C-Q Relationship
-## Incorporate evap. and precip. in water balance
+## Incorporate estimate for Falling Creek inflow (FC) in addition to the contribution from the weir
 
 ###############################################################################
 # Clear workspace
