@@ -664,69 +664,9 @@ TP_ugL <- TP_ugL %>%
                                                              ifelse(hypo_top_depth_m == 9, TP_9, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
-## DIN
-DIN_ugL <- chem %>% 
-  select(DateTime,Depth_m,DIN_ugL) %>% 
-  filter(Depth_m %in% c(0.1,1.6,3.8,5,6.2,8,9)) %>% 
-  drop_na() %>% 
-  pivot_wider(names_from = Depth_m, values_from = DIN_ugL, values_fill = NA, values_fn = mean, names_prefix = "DIN_") %>% 
-  filter(!if_all(c(DIN_0.1, DIN_1.6), is.na)) %>% 
-  filter(!if_all(c(DIN_3.8,DIN_5,DIN_6.2), is.na)) %>% 
-  filter(!if_all(c(DIN_8,DIN_9),is.na))
-
-DIN_ugL <- left_join(DIN_ugL, thermo, by="DateTime")
-
-DIN_ugL <- DIN_ugL %>% 
-  drop_na(thermo.depth) %>% 
-  mutate(epi_DIN = ifelse(is.na(epi_bottom_depth_m), ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                         ifelse(epi_bottom_depth_m == 0.1, DIN_0.1,
-                                ifelse(epi_bottom_depth_m == 1.6, (DIN_0.1*vol_depths$Vol_m3[1]+DIN_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                       ifelse(epi_bottom_depth_m == 3.8, ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                              ifelse(epi_bottom_depth_m == 5, ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                     ifelse(epi_bottom_depth_m == 6.2, ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                            ifelse(epi_bottom_depth_m == 8, ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
-  mutate(hypo_DIN = ifelse(is.na(hypo_top_depth_m), ((DIN_0.1*vol_depths$Vol_m3[1])+(DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                          ifelse(hypo_top_depth_m == 1.6, ((DIN_1.6*vol_depths$Vol_m3[2])+(DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
-                                 ifelse(hypo_top_depth_m == 3.8, ((DIN_3.8*vol_depths$Vol_m3[3])+(DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
-                                        ifelse(hypo_top_depth_m == 5, ((DIN_5*vol_depths$Vol_m3[4])+(DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[4:7]),
-                                               ifelse(hypo_top_depth_m == 6.2, ((DIN_6.2*vol_depths$Vol_m3[5])+(DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),
-                                                      ifelse(hypo_top_depth_m == 8, ((DIN_8*vol_depths$Vol_m3[6])+(DIN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
-                                                             ifelse(hypo_top_depth_m == 9, DIN_9, NA)))))))) %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
-
-## SRP
-SRP_ugL <- chem %>% 
-  select(DateTime,Depth_m,SRP_ugL) %>% 
-  filter(Depth_m %in% c(0.1,1.6,3.8,5,6.2,8,9)) %>% 
-  drop_na() %>% 
-  pivot_wider(names_from = Depth_m, values_from = SRP_ugL, values_fill = NA, values_fn = mean, names_prefix = "SRP_") %>% 
-  filter(!if_all(c(SRP_0.1, SRP_1.6), is.na)) %>% 
-  filter(!if_all(c(SRP_3.8,SRP_5,SRP_6.2), is.na)) %>% 
-  filter(!if_all(c(SRP_8,SRP_9),is.na))
-
-SRP_ugL <- left_join(SRP_ugL, thermo, by="DateTime")
-
-SRP_ugL <- SRP_ugL %>% 
-  drop_na(thermo.depth) %>% 
-  mutate(epi_SRP = ifelse(is.na(epi_bottom_depth_m), ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                         ifelse(epi_bottom_depth_m == 0.1, SRP_0.1,
-                                ifelse(epi_bottom_depth_m == 1.6, (SRP_0.1*vol_depths$Vol_m3[1]+SRP_1.6*vol_depths$Vol_m3[2])/sum(vol_depths$Vol_m3[1:2]),
-                                       ifelse(epi_bottom_depth_m == 3.8, ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),
-                                              ifelse(epi_bottom_depth_m == 5, ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),
-                                                     ifelse(epi_bottom_depth_m == 6.2, ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5]))/sum(vol_depths$Vol_m3[1:5]),
-                                                            ifelse(epi_bottom_depth_m == 8, ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6]))/sum(vol_depths$Vol_m3[1:6]), NA)))))))) %>% 
-  mutate(hypo_SRP = ifelse(is.na(hypo_top_depth_m), ((SRP_0.1*vol_depths$Vol_m3[1])+(SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[1:7]),
-                          ifelse(hypo_top_depth_m == 1.6, ((SRP_1.6*vol_depths$Vol_m3[2])+(SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[2:7]),
-                                 ifelse(hypo_top_depth_m == 3.8, ((SRP_3.8*vol_depths$Vol_m3[3])+(SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[3:7]),
-                                        ifelse(hypo_top_depth_m == 5, ((SRP_5*vol_depths$Vol_m3[4])+(SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[4:7]),
-                                               ifelse(hypo_top_depth_m == 6.2, ((SRP_6.2*vol_depths$Vol_m3[5])+(SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),
-                                                      ifelse(hypo_top_depth_m == 8, ((SRP_8*vol_depths$Vol_m3[6])+(SRP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
-                                                             ifelse(hypo_top_depth_m == 9, SRP_9, NA)))))))) %>% 
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
-
 ## Combine all Chem data
-chem_epi_hypo <- plyr::join_all(list(TN_ugL,TP_ugL,DIN_ugL,SRP_ugL),by=c("DateTime","thermo.depth","epi_bottom_depth_m","hypo_top_depth_m"),type="left") %>% 
-  select(DateTime,epi_TN,hypo_TN,epi_TP,hypo_TP,epi_DIN,hypo_DIN,epi_SRP,hypo_SRP)
+chem_epi_hypo <- plyr::join_all(list(TN_ugL,TP_ugL),by=c("DateTime","thermo.depth","epi_bottom_depth_m","hypo_top_depth_m"),type="left") %>% 
+  select(DateTime,epi_TN,hypo_TN,epi_TP,hypo_TP)
 
 ## Plot
 tn_plot <- chem_epi_hypo %>%  
@@ -751,31 +691,6 @@ tn_plot <- chem_epi_hypo %>%
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
   ylab(expression(VW~TN~(~mu*g~L^-1)))+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-DIN_plot <- chem_epi_hypo %>%  
-  drop_na(epi_DIN,hypo_DIN) %>% 
-  ggplot()+
-  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_line(mapping=aes(x=DateTime,y=epi_DIN,color="Epi"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=epi_DIN,color="Epi"),size=2)+
-  geom_line(mapping=aes(x=DateTime,y=hypo_DIN,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=hypo_DIN,color="Hypo"),size=2)+
-  scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  xlab("") + 
-  ylab(expression(VW~DIN~(~mu*g~L^-1)))+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
@@ -804,35 +719,10 @@ TP_plot <- chem_epi_hypo %>%
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
-SRP_plot <- chem_epi_hypo %>%  
-  drop_na(epi_SRP,hypo_SRP) %>% 
-  ggplot()+
-  geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2018-05-01"), xmax = as.POSIXct("2018-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2019-05-01"), xmax = as.POSIXct("2019-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2020-11-01"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
-  annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_line(mapping=aes(x=DateTime,y=epi_SRP,color="Epi"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=epi_SRP,color="Epi"),size=2)+
-  geom_line(mapping=aes(x=DateTime,y=hypo_SRP,color="Hypo"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=hypo_SRP,color="Hypo"),size=2)+
-  scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  xlab("") + 
-  ylab(expression(VW~SRP~(~mu*g~L^-1)))+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-ggarrange(tn_plot,DIN_plot,TP_plot,SRP_plot,ncol=1,nrow=4, labels = c("A.", "B.", "C.", "D."),
+ggarrange(tn_plot,TP_plot,ncol=1,nrow=2, labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_FCR50_Nuts.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/SI_FCR50_TotalNuts.jpg",width=10,height=6,units="in",dpi=320)
 
 ###############################################################################
 ## Load in daily inflow - from Eco_DOC_rlnorm.R
@@ -907,8 +797,41 @@ met_daily <- met %>%
   mutate(DateTime = as.POSIXct(DateTime, "%Y-%m-%d", tz = "EST")) %>% 
   group_by(DateTime) %>% 
   dplyr::summarise(rain_tot_mm = sum(Rain_Total_mm, na.rm = TRUE),
-            ShortwaveRadiationUp_Average_W_m2 = mean(ShortwaveRadiationUp_Average_W_m2, na.rm = TRUE)) %>% 
+            ShortwaveRadiationUp_Average_W_m2 = mean(ShortwaveRadiationUp_Average_W_m2, na.rm = TRUE),
+            Temp_Average_C = mean(AirTemp_Average_C,na.rm=TRUE),
+            BP_Average_kPa = mean(BP_Average_kPa,na.rm=TRUE),
+            InfraredRadiationDown_Average_W_m2 = mean(InfraredRadiationDown_Average_W_m2,na.rm=TRUE),
+            InfraredRadiationUp_Average_W_m2 = mean(InfraredRadiationUp_Average_W_m2,na.rm=TRUE),
+            Albedo_Average_W_m2 = mean(Albedo_Average_W_m2,na.rm=TRUE)) %>% 
   filter(ShortwaveRadiationUp_Average_W_m2 < 450) # Remove 2018-04-05 - maintenance and only measured afternoon values!
+
+## Estimate contribution from Precip. and Evap. to FCR
+## FCR Surface area: 0.119 km2
+## Precip: as m3/s
+fcr_surface_area_m2 = 0.119*1000000
+
+precip <- met_daily %>% 
+  select(DateTime,rain_tot_mm) %>% 
+  mutate(Precip_m3_s = rain_tot_mm*(fcr_surface_area_m2*1000000)*1e-9/(24*60*60))
+
+## Evap: Following Munger et al. 2019 (https://doi.org/10.1080/10402381.2018.1545811)
+z = 520 #FCR elevation (m)
+alpha = 1.26 #dimensionless
+lvap = 26 #MJ/kg
+rho = 998 #kg/m3
+
+evap <- met_daily %>% 
+  mutate(mvap = 4098*(0.6108*exp((17.27*Temp_Average_C)/(Temp_Average_C+237.3)))/(Temp_Average_C+273.3)^2, 
+         psy = 0.000665*BP_Average_kPa) %>% 
+  mutate(Rnl = InfraredRadiationDown_Average_W_m2-InfraredRadiationUp_Average_W_m2) %>% 
+  mutate(Rnet = ((ShortwaveRadiationUp_Average_W_m2*(1-Albedo_Average_W_m2))-Rnl)*1.0e-6*60*60*24) %>% 
+  mutate(E_m3_s = alpha*(mvap/(mvap+psy))*(Rnet/(lvap*rho))*fcr_surface_area_m2/(24*60*60)) %>% 
+  mutate(E_m3_s = ifelse(E_m3_s<0,0,E_m3_s))
+
+## Estimate contributions from inflow, precip, and evap over the study period
+sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
+sum(evap$E_m3_s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
+sum(precip$Precip_m3_s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
 
 ## Then plot total rainfall and shortwave radiation with thermocline depth and DO
 ## Plot timeseries of thermocline depth for SI
