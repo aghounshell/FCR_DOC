@@ -41,7 +41,7 @@ doc_mgL <- read.csv("./Data/EpiHypo_Weir_FC_DOC.csv") %>%
 
 ###############################################################################
 ## Add in DOC processing - calculated from Eco_DOC_rlnorm_Wetlands.R
-doc_processing <- read_csv("./Data/13Feb25_final_doc_inputs_fc.csv") %>% 
+doc_processing <- read_csv("./Data/20Mar25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 doc_proc_mgL <- doc_processing %>% 
@@ -123,6 +123,8 @@ contributions <- all_summary %>%
   select(year,epi_internal,hypo_internal,inflow) %>% 
   pivot_longer(cols = epi_internal:inflow,
                names_to = "type")
+
+write.csv(contributions, "./Data/model_contributions_fc.csv",row.names=FALSE)
 
 ## Plot overall contributions
 type_order <- c('hypo_internal','epi_internal','inflow')
@@ -764,13 +766,65 @@ final_inflow_m3s <- left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>%
 
 # Calculate residence time assuming full pond
 wtr_d <- final_inflow_m3s %>% 
-  mutate(wtr_d = (310000)/Inflow_m3s/60/60/24)
+  mutate(wtr_d = (310000)/Inflow_m3s/60/60/24,
+         month = month(DateTime),
+         year = year(DateTime))
 
 wtr_d %>% 
   na.omit(wtr_d) %>% 
   summarise(med = median(wtr_d),
             sd = sd(wtr_d)) %>% 
   mutate(se = sd/length(wtr_d$wtr_d))
+
+## Plot WRT annually for each summer stratified period
+wrt_2017 <- wtr_d %>% 
+  filter(month %in% c(5,6,7,8,9,10,11) & year==2017) %>% 
+  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+  geom_boxplot(size=0.8,alpha=0.5)+
+  xlab("")+
+  ylab("WRT (d)")+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+wrt_2018 <- wtr_d %>% 
+  filter(month %in% c(5,6,7,8,9,10,11) & year==2018) %>% 
+  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+  geom_boxplot(size=0.8,alpha=0.5)+
+  xlab("")+
+  ylab("WRT (d)")+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+wrt_2019 <- wtr_d %>% 
+  filter(month %in% c(5,6,7,8,9,10,11) & year==2019) %>% 
+  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+  geom_boxplot(size=0.8,alpha=0.5)+
+  xlab("")+
+  ylab("WRT (d)")+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+wrt_2020 <- wtr_d %>% 
+  filter(month %in% c(5,6,7,8,9,10,11) & year==2020) %>% 
+  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+  geom_boxplot(size=0.8,alpha=0.5)+
+  xlab("")+
+  ylab("WRT (d)")+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+wrt_2021 <- wtr_d %>% 
+  filter(month %in% c(5,6,7,8,9,10,11) & year==2021) %>% 
+  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+  geom_boxplot(size=0.8,alpha=0.5)+
+  xlab("")+
+  ylab("WRT (d)")+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+ggarrange(wrt_2017,wrt_2018,wrt_2019,wrt_2020,wrt_2021,ncol=3,nrow=2)
+
+ggsave("./Figs/SI_WRT_Boxplot.png",dpi=800,width=8,height=5)
 
 ###############################################################################
 ## Plot Temp, DO, Chla, and Inflow for main MS
@@ -813,25 +867,6 @@ fcr_surface_area_m2 = 0.119*1000000
 precip <- met_daily %>% 
   select(DateTime,rain_tot_mm) %>% 
   mutate(Precip_m3_s = rain_tot_mm*(fcr_surface_area_m2*1000000)*1e-9/(24*60*60))
-
-## Evap: Following Munger et al. 2019 (https://doi.org/10.1080/10402381.2018.1545811)
-z = 520 #FCR elevation (m)
-alpha = 1.26 #dimensionless
-lvap = 26 #MJ/kg
-rho = 998 #kg/m3
-
-evap <- met_daily %>% 
-  mutate(mvap = 4098*(0.6108*exp((17.27*Temp_Average_C)/(Temp_Average_C+237.3)))/(Temp_Average_C+273.3)^2, 
-         psy = 0.000665*BP_Average_kPa) %>% 
-  mutate(Rnl = InfraredRadiationDown_Average_W_m2-InfraredRadiationUp_Average_W_m2) %>% 
-  mutate(Rnet = ((ShortwaveRadiationUp_Average_W_m2*(1-Albedo_Average_W_m2))-Rnl)*1.0e-6*60*60*24) %>% 
-  mutate(E_m3_s = alpha*(mvap/(mvap+psy))*(Rnet/(lvap*rho))*fcr_surface_area_m2/(24*60*60)) %>% 
-  mutate(E_m3_s = ifelse(E_m3_s<0,0,E_m3_s))
-
-## Estimate contributions from inflow, precip, and evap over the study period
-sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
-sum(evap$E_m3_s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
-sum(precip$Precip_m3_s,na.rm=TRUE)/(sum(final_inflow_m3s$Inflow_m3s,na.rm=TRUE)+sum(evap$E_m3_s,na.rm=TRUE)+sum(precip$Precip_m3_s,na.rm=TRUE))*100
 
 ## Then plot total rainfall and shortwave radiation with thermocline depth and DO
 ## Plot timeseries of thermocline depth for SI
@@ -940,18 +975,20 @@ final_thermo <- thermo %>%
 ## Organize data for ARIMA modeling - following EddyFlux, 3_Rev_EnvAnalysis.R
 # Include: DOC data, Temp, DO, Flora, Inflow, Rainfall, and SW Radiation for Epi and Hypo
 arima_epi <- plyr::join_all(list(all_doc_mgL,final_temp_c,final_do_pSat,final_chla_ugL),by=c("DateTime","Depth"),type="left") %>% 
-  select(-year,-month)
+  select(-month,-year.x,-year.y)
 
 # Include: DOC data, Temp, DO, Flora, Inflow, Rainfall, SW Radiation, CO2, and CH4 for Epi and Hypo
 arima_hypo <- plyr::join_all(list(all_doc_mgL,final_temp_c,final_do_pSat,final_chla_ugL),by=c("DateTime","Depth"),type="left") %>% 
-  select(-year,-month)
+  select(-month,-year.x,-year.y)
 
 ## Select time points where we have DOC concentrations
 arima_epi <- plyr::join_all(list(arima_epi,met_daily,wtr_d),by="DateTime",type="left") %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01"),Depth == "Epi")
+  filter(DateTime >= as.POSIXct("2017-01-01"),Depth == "Epi") %>% 
+  select(-month,-year)
 
 arima_hypo <- plyr::join_all(list(arima_hypo,met_daily,wtr_d),by="DateTime",type="left") %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01"),Depth == "Hypo")
+  filter(DateTime >= as.POSIXct("2017-01-01"),Depth == "Hypo") %>% 
+  select(-month,-year)
 
 ## Add in days since anoxia for Hypo
 arima_hypo <- left_join(arima_hypo,hypo_do_mgL,by=c("DateTime","Depth")) %>% 
@@ -976,16 +1013,41 @@ arima_hypo <- left_join(arima_hypo,epi_chla,by="DateTime")
 
 ## Add nutrient data, too
 arima_epi <- left_join(arima_epi,chem_epi_hypo,by="DateTime") %>% 
-  select(-hypo_TN,-hypo_TP,-hypo_DIN,-hypo_SRP)
+  select(-hypo_TN,-hypo_TP)
 
 arima_hypo <- left_join(arima_hypo,chem_epi_hypo,by="DateTime") %>% 
-  select(-epi_TN,-epi_TP,-epi_DIN,-epi_SRP)
+  select(-epi_TN,-epi_TP)
+
+## Constrain to stratified time periods ()
+arima_epi <- arima_epi %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  select(-doy)
+
+
+
+
+################## TO DO!!!!! ########################################
+## CHECK TP AND TN DATA FROM 2019
+## PLOT AS BOX PLOTS, BUT DON'T INCLUDE IN ARIMA MODELING
+
+## MAKE SURE TO ONLY INLCUDE STRATIFIED DATA (SEE HYPO ABOVE)
+
+## CHECK TEMP AND DO SAT DATA IN 2021???
+
+
+
+
+mean_model_timepoints <- final_doc_inputs_g %>% 
+  mutate(doy = yday(DateTime),
+         mean_doc_inflow_g_comb = mean_doc_inflow_g+mean_doc_fc_inflow_g) %>% 
+  filter(doy>=122 & doy<=320) %>% 
 
 ## Calculate stats for env parameters - limited to summer stratified period (May-Oct)
 epi_stats <- arima_epi %>% 
   mutate(month = month(DateTime)) %>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(5,6,7,8,9,10)) %>%
-  select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,epi_TN,epi_TP,epi_DIN,epi_SRP) %>% 
+  select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,epi_TN,epi_TP) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE)%>% 
   pivot_longer(cols = contains("fn"),
                names_to = "func") %>% 
@@ -1004,7 +1066,7 @@ epi_stats <- epi_stats %>%
 hypo_stats <- arima_hypo %>% 
   mutate(month = month(DateTime)) %>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(5,6,7,8,9,10)) %>% 
-  select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,hypo_TN,hypo_TP,hypo_DIN,hypo_SRP,rain_tot_mm,ShortwaveRadiationUp_Average_W_m2,Inflow_m3s,wtr_d) %>% 
+  select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,hypo_TN,hypo_TP,rain_tot_mm,ShortwaveRadiationUp_Average_W_m2,Inflow_m3s,wtr_d) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
   pivot_longer(cols = contains("fn"),
                names_to = "func") %>% 

@@ -57,6 +57,11 @@ inflow <- read.csv("./Data/Inflow_2013_2021.csv",header=T) %>%
 ## If flows are 'below detection' (i.e., Flow_Flag = 3 or 13)
 min_flow_cms <- min(inflow$WVWA_Flow_cms,na.rm=TRUE)
 
+## Find number of 15-min intervals where flows are 'below detection'
+inflow %>% 
+  filter(WVWA_Flag_Flow %in% c(3,13)) %>% 
+  count()
+
 inflow <- inflow %>% 
   mutate(WVWA_Flow_cms = ifelse(WVWA_Flag_Flow %in% c(3,13),min_flow_cms,WVWA_Flow_cms),
          VT_Flow_cms = ifelse(VT_Flag_Flow %in% c(3,13),min_flow_cms,VT_Flow_cms))
@@ -135,6 +140,8 @@ discrete_q <- read.csv("./Data/ManualDischarge_2019_2021.csv",header=T) %>%
 
 ## Come up with an exponential relationship to estimate wetlands inflow
 fc_flow_mod <- lm(log10(Flow_cms)~log10(mean_flow_cms),data=discrete_q)
+
+summary(fc_flow_mod) # Standard error = 1.771
 
 ## Come up with test data to plot - using max and min from weir data
 fc_flow_test <- data.frame(weir_flow=seq(min(inflow_daily$mean_flow_cms,na.rm=TRUE),max(inflow_daily$mean_flow_cms,na.rm=TRUE),len=1000))
@@ -256,6 +263,35 @@ combine <- ggarrange(docvinflow,docvinflow_all,nrow=1,ncol=2,labels = c("A.", "B
 
 ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
 
+## Create boot-strapped parameters for DOC inflow (weir) - using MDL for the SD
+doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+doc_inflow_full <- doc_inflow_full %>% 
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+doc_inflow_full <- left_join(doc_inflow_full,chem_100,by="DateTime")
+
+## Use Q-DOC log model to fill in missing DOC inflow data
+## Following cq_mod_log from above
+for (i in 1:length(doc_inflow_full$DateTime)){
+  if (is.na(doc_inflow_full$DOC_mgL[i])){
+    doc_inflow_full$DOC_mgL[i] = cq_mod_log$coefficients[2]*log10(inflow_daily_full$mean[i])+cq_mod_log$coefficients[1]
+  } else {
+    doc_inflow_full$DOC_mgL[i] = doc_inflow_full$DOC_mgL[i]
+  }
+}
+
+doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
+
+for (i in 1:length(doc_inflow_full$DateTime)){
+  # Find location and shape for rlnorm using the mean and sd
+  m <- doc_inflow_full$DOC_mgL[i]
+  s <- sqrt((0.11^2)+(1.016^2))/2 ## Add in measured (DOC MDL) and C-Q model
+  location <- log(m^2 / sqrt(s^2 + m^2))
+  shape <- sqrt(log(1 + (s^2 / m^2)))
+  
+  # Calculate distribution for inflow DOC
+  doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
+}
+
 ## Then check relationship with flow and DOC at Falling Creek- use to estimate DOC concentration at site 200
 discrete_q <- discrete_q %>% 
   left_join(chem_200,by=c("DateTime","Site"))
@@ -292,6 +328,36 @@ ggarrange(fc_flow_fig,fc_doc_fig,nrow=1,ncol=2,labels = c("A.", "B."),font.label
 
 ggsave("./Figs/SI_DOCvInflow_FallingCreek.png",dpi=800,width=11,height=5)
 
+## Calculate DOC inflow (Falling Creek) - from Site 200
+fc_doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
+fc_doc_inflow_full <- fc_doc_inflow_full %>% 
+  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
+fc_doc_inflow_full <- left_join(fc_doc_inflow_full,chem_200,by="DateTime")
+
+## Use Q-DOC linear model to fill in missing DOC inflow data
+## Following fc_doc_mod from above
+for (i in 1:length(fc_doc_inflow_full$DateTime)){
+  if (is.na(fc_doc_inflow_full$DOC_mgL[i])){
+    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_mod$coefficients[2]*FC_flow_daily_full$fc_flow_cms[i]+fc_doc_mod$coefficients[1]
+  } else {
+    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_inflow_full$DOC_mgL[i]
+  }
+}
+
+fc_doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(fc_doc_inflow_full$DateTime)))
+
+for (i in 1:length(fc_doc_inflow_full$DateTime)){
+  # Find location and shape for rlnorm using the mean and sd
+  m <- fc_doc_inflow_full$DOC_mgL[i]
+  s <- sqrt((0.11^2)+(0.871^2))/2 ## Add in measured (DOC MDL) and C-Q model
+  location <- log(m^2 / sqrt(s^2 + m^2))
+  shape <- sqrt(log(1 + (s^2 / m^2)))
+  
+  # Calculate distribution for FC
+  fc_doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
+}
+
+###############################################################################
 # Load in bathymetric data from EDI
 # From EDI: https://portal.edirepository.org/nis/mapbrowse?packageid=edi.1254.1
 # Last downloaded: 12 Apr 2024
@@ -355,76 +421,18 @@ for (i in 1:length(doc_box_full$DateTime)){
   }
 }
 
-## Create boot-strapped parameters for volume - assuming volume +/-5%
+## Create boot-strapped parameters for volume - assuming volume +/-10%
 vol_model_input <- as.data.frame(matrix(data=NA, ncol=1000,nrow=7))
 
 for (i in 1:7){
   # Find location and shape for rlnorm using the mean and sd
   m <- vol_depths$Vol_m3[i]
-  s <- vol_depths$Vol_m3[i]*0.05
+  s <- vol_depths$Vol_m3[i]*0.10
   location <- log(m^2 / sqrt(s^2 + m^2))
   shape <- sqrt(log(1 + (s^2 / m^2)))
   
   # Calculate distribution for each depth
   vol_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
-}
-
-## Create boot-strapped parameters for DOC inflow (weir) - using MDL for the SD
-doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
-doc_inflow_full <- doc_inflow_full %>% 
-  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
-doc_inflow_full <- left_join(doc_inflow_full,chem_100,by="DateTime")
-
-## Use Q-DOC log model to fill in missing DOC inflow data
-## Following cq_mod_log from above
-for (i in 1:length(doc_inflow_full$DateTime)){
-  if (is.na(doc_inflow_full$DOC_mgL[i])){
-    doc_inflow_full$DOC_mgL[i] = cq_mod_log$coefficients[2]*log10(inflow_daily_full$mean[i])+cq_mod_log$coefficients[1]
-  } else {
-    doc_inflow_full$DOC_mgL[i] = doc_inflow_full$DOC_mgL[i]
-  }
-}
-
-doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
-
-for (i in 1:length(doc_inflow_full$DateTime)){
-  # Find location and shape for rlnorm using the mean and sd
-  m <- doc_inflow_full$DOC_mgL[i]
-  s <- sqrt((0.11^2)+(1.016^2))/2 ## Add in measured (DOC MDL) and C-Q model
-  location <- log(m^2 / sqrt(s^2 + m^2))
-  shape <- sqrt(log(1 + (s^2 / m^2)))
-  
-  # Calculate distribution for each depth
-  doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
-}
-
-## Calculate DOC inflow (Falling Creek) - from Site 200
-fc_doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
-fc_doc_inflow_full <- fc_doc_inflow_full %>% 
-  rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
-fc_doc_inflow_full <- left_join(fc_doc_inflow_full,chem_200,by="DateTime")
-
-## Use Q-DOC linear model to fill in missing DOC inflow data
-## Following fc_doc_mod from above
-for (i in 1:length(fc_doc_inflow_full$DateTime)){
-  if (is.na(fc_doc_inflow_full$DOC_mgL[i])){
-    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_mod$coefficients[2]*FC_flow_daily_full$fc_flow_cms[i]+fc_doc_mod$coefficients[1]
-  } else {
-    fc_doc_inflow_full$DOC_mgL[i] = fc_doc_inflow_full$DOC_mgL[i]
-  }
-}
-
-fc_doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(fc_doc_inflow_full$DateTime)))
-
-for (i in 1:length(fc_doc_inflow_full$DateTime)){
-  # Find location and shape for rlnorm using the mean and sd
-  m <- fc_doc_inflow_full$DOC_mgL[i]
-  s <- sqrt((0.11^2)+(0.871^2))/2 ## Add in measured (DOC MDL) and C-Q model
-  location <- log(m^2 / sqrt(s^2 + m^2))
-  shape <- sqrt(log(1 + (s^2 / m^2)))
-  
-  # Calculate distribution for each depth
-  fc_doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
 ###############################################################################
@@ -886,17 +894,20 @@ write.csv(doc_entr, "./Data/doc_entr.csv",row.names=FALSE)
 doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # DOC epi processing for each time point
 doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
 
+# Incorporate 10% uncertainty in p
 p = 0.74 # From Carey et al. 2018 - percentage of discharge to the epi vs. hypo; assume 100% of FC goes to Epi.
+
+p_error <- rnorm(n=1000,mean=p,sd=(p*0.10)/2)
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
+    doc_epi_process_g[i,j] = doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p_error[j])-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p_error[j]))+doc_epi_mass_outflow[i,j]-doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p)-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
+    doc_epi_process_mgL[i,j] = (doc_dt_epi[i,j]-(doc_inflow_mass[i,j]*p_error[j])-(fc_doc_inflow_mass[i,j])-(doc_hypo_mass_outflow[i,j]*(1-p_error[j]))+doc_epi_mass_outflow[i,j]-doc_entr[i,j])/epi_vol[i,j]
   }
 }
 
@@ -905,13 +916,13 @@ doc_hypo_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_hypo_process_g[i,j] = doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j]
+    doc_hypo_process_g[i,j] = doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p_error[j]))+(doc_hypo_mass_outflow[i,j]*(1-p_error[j]))+doc_entr[i,j]
   }
 }
 
 for (j in 1:1000){
   for (i in 1:length(doc_box_full$DateTime)){
-    doc_hypo_process_mgL[i,j] = (doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p))+(doc_hypo_mass_outflow[i,j]*(1-p))+doc_entr[i,j])/hypo_vol[i,j]
+    doc_hypo_process_mgL[i,j] = (doc_dt_hypo[i,j]-(doc_inflow_mass[i,j]*(1-p_error[j]))+(doc_hypo_mass_outflow[i,j]*(1-p_error[j]))+doc_entr[i,j])/hypo_vol[i,j]
   }
 }
 
@@ -987,10 +998,10 @@ final_doc_inputs_g <- final_doc_inputs_g %>%
   filter(DateTime >= as.POSIXct("2017-01-01"))
 
 ## Save final model output
-write.csv(final_doc_inputs_g, "./Data/13Feb25_final_doc_inputs_fc.csv",row.names=FALSE)
+write.csv(final_doc_inputs_g, "./Data/20Mar25_final_doc_inputs_fc.csv",row.names=FALSE)
 
 ## Load in final model output (as needed!)
-final_doc_inputs_g <- read.csv("./Data/13Feb25_final_doc_inputs_fc.csv") %>% 
+final_doc_inputs_g <- read.csv("./Data/20Mar25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 ## Constrain to sampling days
@@ -999,7 +1010,10 @@ doc_model_timepoints <- left_join(doc_box,final_doc_inputs_g,"DateTime")
 ###############################################################################
 ## Let's make some plots!
 ## Plot inputs/outputs to the Epi DOC model
-epi_inflow <- ggplot(final_doc_inputs_g)+
+epi_inflow <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1019,17 +1033,24 @@ epi_inflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Inflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Inflow"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("External DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"), values=c("#F0B670","#393E41","#7EBDC2"))+
   scale_fill_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"),values=c("#F0B670","#393E41","#7EBDC2"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  ylim(0,30)+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
+  #ylim(0,30)+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
 
-epi_outflow <- ggplot(final_doc_inputs_g)+
+epi_outflow <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1043,17 +1064,24 @@ epi_outflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_epi_outflow_g/1000)-(sd_doc_epi_outflow_g/1000),ymax=(mean_doc_epi_outflow_g/1000)+(sd_doc_epi_outflow_g/1000),fill="Epi Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_outflow_g/1000,color="Epi Outflow"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("DOC Outflow (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi Outflow"), values=c("#7EBDC2"))+
   scale_fill_manual(breaks=c("Epi Outflow"),values=c("#7EBDC2"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
-  ylim(0,100)+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
+  #ylim(0,100)+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
 
-epi_change <- ggplot(final_doc_inputs_g)+
+epi_change <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1071,17 +1099,23 @@ epi_change <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=-(mean_doc_entr_g-sd_doc_entr_g)/1000,ymin=-(mean_doc_entr_g+sd_doc_entr_g)/1000,fill="Entr"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=-mean_doc_entr_g/1000,color="Entr"))+
   geom_point(mapping=aes(x=DateTime,y=-mean_doc_entr_g/1000,color="Entr"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("DOC/dt (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi DOC/dt","Entr"), values=c("#7EBDC2","#E7804B"))+
   scale_fill_manual(breaks=c("Epi DOC/dt","Entr"),values=c("#7EBDC2","#E7804B"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
 
 epi_internal <- final_doc_inputs_g %>% 
   mutate(sd_doc_epi_process_g = ifelse(sd_doc_epi_process_g>50000,NA,sd_doc_epi_process_g)) %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
   ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
@@ -1097,11 +1131,15 @@ epi_internal <- final_doc_inputs_g %>%
   geom_ribbon(mapping=aes(x=DateTime,ymin=mean_doc_epi_process_g/1000-sd_doc_epi_process_g/1000,ymax=mean_doc_epi_process_g/1000+sd_doc_epi_process_g/1000,fill="Epi Internal"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi Internal"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_epi_process_g/1000,color="Epi Internal"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("Internal DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Epi Internal"), values=c("#7EBDC2"))+
   scale_fill_manual(breaks=c("Epi Internal"),values=c("#7EBDC2"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
@@ -1112,7 +1150,10 @@ ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = 
 ggsave("./Figs/Fig_S2_Epi_model_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
-hypo_inflow <- ggplot(final_doc_inputs_g)+
+hypo_inflow <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1126,16 +1167,23 @@ hypo_inflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=((mean_doc_inflow_g*0.26/1000)-(sd_doc_inflow_g*0.26/1000)),ymax=((mean_doc_inflow_g*0.26/1000)+(sd_doc_inflow_g*0.26/1000)),fill="Inflow"),alpha=0.50)+
   geom_line(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
   geom_point(mapping=aes(x=DateTime,y=(mean_doc_inflow_g*0.26/1000),color="Inflow"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("External DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Inflow"), values=c("#F0B670"))+
   scale_fill_manual(breaks=c("Inflow"),values=c("#F0B670"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
 
-hypo_outflow <- ggplot(final_doc_inputs_g)+
+hypo_outflow <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1149,16 +1197,23 @@ hypo_outflow <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymin=(mean_doc_hypo_outflow_g*0.26/1000)-(sd_doc_hypo_outflow_g*0.26/1000),ymax=(mean_doc_hypo_outflow_g*0.26/1000)+(sd_doc_hypo_outflow_g*0.26/1000),fill="Hypo Outflow"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_outflow_g*0.26/1000,color="Hypo Outflow"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("DOC Outflow (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo Outflow"), values=c("#393E41"))+
   scale_fill_manual(breaks=c("Hypo Outflow"),values=c("#393E41"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
 
-hypo_change <- ggplot(final_doc_inputs_g)+
+hypo_change <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1176,16 +1231,23 @@ hypo_change <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=(mean_doc_entr_g-sd_doc_entr_g)/1000,ymin=(mean_doc_entr_g+sd_doc_entr_g)/1000,fill="Entr"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_entr_g/1000,color="Entr"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_entr_g/1000,color="Entr"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("DOC/dt (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo DOC/dt","Entr"), values=c("#393E41","#E7804B"))+
   scale_fill_manual(breaks=c("Hypo DOC/dt","Entr"),values=c("#393E41","#E7804B"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
 
-hypo_internal <- ggplot(final_doc_inputs_g)+
+hypo_internal <- final_doc_inputs_g %>% 
+  mutate(month=month(DateTime)) %>% 
+  filter (month %in% c(5,6,7,8,9,10,11)) %>% 
+  ggplot()+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -1200,11 +1262,15 @@ hypo_internal <- ggplot(final_doc_inputs_g)+
   geom_ribbon(mapping=aes(x=DateTime,ymax=(mean_doc_hypo_process_g-sd_doc_hypo_process_g)/1000,ymin=(mean_doc_hypo_process_g+sd_doc_hypo_process_g)/1000,fill="Hypo Internal"),alpha=0.5)+
   geom_line(mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo Internal"))+
   geom_point(mapping=aes(x=DateTime,y=mean_doc_hypo_process_g/1000,color="Hypo Internal"))+
+  annotate("rect", xmin = as.POSIXct("2017-11-16"), xmax = as.POSIXct("2018-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2018-11-16"), xmax = as.POSIXct("2019-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2019-11-16"), xmax = as.POSIXct("2020-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
+  annotate("rect", xmin = as.POSIXct("2020-11-16"), xmax = as.POSIXct("2021-04-30"), ymin = -Inf, ymax = Inf,fill = "white")+
   ylab(expression(paste("Internal DOC (kg d"^-1*")")))+
   xlab("")+
   scale_color_manual(breaks=c("Hypo Internal"), values=c("#393E41"))+
   scale_fill_manual(breaks=c("Hypo Internal"),values=c("#393E41"))+
-  xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
+  xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.position = "none")
