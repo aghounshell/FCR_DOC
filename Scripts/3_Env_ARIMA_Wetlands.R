@@ -233,7 +233,8 @@ detach(package:plyr) # to prevent issues with dplyr vs plyr not playing well tog
 # Now need to clean up the data frame and make all factors numeric
 casts_depths <- as.data.frame(super_final) %>%
   select(-c(1,depth)) %>%
-  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
+  drop_na(Temp_C)
 
 # Separate by Env parameter of interest and pivot longer
 # Temperature
@@ -261,6 +262,11 @@ temp_c <- temp_c %>%
                                                         ifelse(hypo_top_depth_m == 8, ((Temp_8.0*vol_depths$Vol_m3[6])+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
                                                                ifelse(hypo_top_depth_m == 9, Temp_9.0, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+## Fill in some 2021 data where we're missing 'in between' depths
+temp_c <- temp_c %>% 
+  mutate(epi_temp = ifelse(is.na(epi_temp) & epi_bottom_depth_m == 5, ((Temp_0.1*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(Temp_5.0*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_temp),
+         hypo_temp = ifelse(is.na(hypo_temp) & hypo_top_depth_m == 6.2, ((Temp_8.0*sum(vol_depths$Vol_m3[5]+vol_depths$Vol_m3[6]))+(Temp_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),hypo_temp))
 
 ## Some light QA/QC'ing - weird temps
 # temp_c <- temp_c[!(temp_c$DateTime = as.POSIXct("2021-08-20") | temp_c$DateTime == as.POSIXct("2020-07-08") | temp_c$DateTime == as.POSIXct("2019-05-30") | temp_c$DateTime == as.POSIXct("2019-04-29") | temp_c$DateTime == as.POSIXct("2017-09-17")),]
@@ -324,6 +330,11 @@ do_pSat <- do_pSat %>%
                                                                ifelse(hypo_top_depth_m == 9, DO_9.0, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
+## Fill in some 2021 data where we're missing 'in between' depths
+do_pSat <- do_pSat %>% 
+  mutate(epi_DO = ifelse(is.na(epi_DO) & epi_bottom_depth_m == 5, ((DO_0.1*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(DO_5.0*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_DO),
+         hypo_DO = ifelse(is.na(hypo_DO) & hypo_top_depth_m == 6.2, ((DO_8.0*sum(vol_depths$Vol_m3[5]+vol_depths$Vol_m3[6]))+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),hypo_DO))
+
 ## Some light QA/QC'ing
 # 2021-08-20; 479
 # 2020-07-08; 413
@@ -386,6 +397,11 @@ do_mgL <- do_mgL %>%
                                                       ifelse(hypo_top_depth_m == 8, ((DO_8.0*vol_depths$Vol_m3[6])+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
                                                              ifelse(hypo_top_depth_m == 9, DO_9.0, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+## Fill in some 2021 data where we're missing 'in between' depths
+do_mgL <- do_mgL %>% 
+  mutate(epi_DO = ifelse(is.na(epi_DO) & epi_bottom_depth_m == 5, ((DO_0.1*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(DO_5.0*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_DO),
+         hypo_DO = ifelse(is.na(hypo_DO) & hypo_top_depth_m == 6.2, ((DO_8.0*sum(vol_depths$Vol_m3[5]+vol_depths$Vol_m3[6]))+(DO_9.0*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),hypo_DO))
 
 ## Some light QA/QC'ing
 # 2021-08-20;479
@@ -469,10 +485,10 @@ doc_model_oxy %>%
 hypo_oxy_conc <- doc_model_oxy %>% 
   ggplot(mapping=aes(x=DOC_mgL,y=as.factor(anoxia),fill=as.factor(anoxia)))+
   geom_density_ridges()+
-  geom_vline(mapping=aes(xintercept=2.67),linetype="dashed")+ #oxic
+  geom_vline(mapping=aes(xintercept=2.64),linetype="dashed")+ #oxic
   annotate("text", x = 2.8, y=1.2, label = "Oxic",angle = 90,size=5)+
-  geom_vline(mapping=aes(xintercept=2.47),linetype="dashed")+ #anoxic
-  annotate("text", x = 2.3, y=3.1, label = "Anoxic",angle = 90,size=5)+
+  geom_vline(mapping=aes(xintercept=2.31),linetype="dashed")+ #anoxic
+  annotate("text", x = 2.15, y=3.1, label = "Anoxic",angle = 90,size=5)+
   scale_fill_manual(values=c("#7EBDC2", "#9B9B9B"))+
   scale_y_discrete(breaks=c("0","1"),
                    labels=c("Oxic", "Anoxic"))+
@@ -636,6 +652,29 @@ TN_ugL <- TN_ugL %>%
                                                                ifelse(hypo_top_depth_m == 9, TN_9, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
+## Fill in some 2021 data where we're missing 'in between' depths
+TN_ugL <- TN_ugL %>% 
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 1.6, TN_1.6, epi_TN),
+         hypo_TN = ifelse(is.na(hypo_TN) & hypo_top_depth_m == 3.8, ((TN_5*(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4]+vol_depths$Vol_m3[5]))+(TN_9*(vol_depths$Vol_m3[6]+vol_depths$Vol_m3[7])))/sum(vol_depths$Vol_m3[3:7]),hypo_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 1.6, TN_0.1, epi_TN),
+         epi_hypo = ifelse(is.na(hypo_TN) & hypo_top_depth_m == 3.8, ((TN_3.8*vol_depths$Vol_m3[3])+(TN_5*vol_depths$Vol_m3[4])+(TN_6.2*vol_depths$Vol_m3[5])+(TN_8*(vol_depths$Vol_m3[6]+vol_depths$Vol_m3[7])))/sum(vol_depths$Vol_m3[3:7]),hypo_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 3.8, ((TN_0.1*(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TN_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),epi_TN),
+         hypo_TN = ifelse(is.na(hypo_TN) & hypo_top_depth_m == 5, ((TN_5*(vol_depths$Vol_m3[4]+vol_depths$Vol_m3[5]))+(TN_9*(vol_depths$Vol_m3[7]+vol_depths$Vol_m3[6])))/sum(vol_depths$Vol_m3[4:7]),hypo_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 3.8, TN_0.1 ,epi_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 3.8, TN_1.6 ,epi_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 5, ((TN_0.1*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TN_5*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_TN),
+         hypo_TN = ifelse(is.na(hypo_TN) & hypo_top_depth_m == 6.2, ((TN_8*sum(vol_depths$Vol_m3[5]+vol_depths$Vol_m3[6]))+(TN_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),hypo_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 5, ((TN_1.6*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TN_5*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_TN),
+         hypo_TN = ifelse(is.na(hypo_TN) & hypo_top_depth_m == 6.2, TN_9, hypo_TN)) %>% 
+  
+  mutate(epi_TN = ifelse(is.na(epi_TN) & epi_bottom_depth_m == 5, ((TN_0.1*vol_depths$Vol_m3[1])+(TN_1.6*vol_depths$Vol_m3[2])+(TN_3.8*(vol_depths$Vol_m3[3])+vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),epi_TN))
+
 ## TP
 TP_ugL <- chem %>% 
   select(DateTime,Depth_m,TP_ugL) %>% 
@@ -665,6 +704,29 @@ TP_ugL <- TP_ugL %>%
                                                       ifelse(hypo_top_depth_m == 8, ((TP_8*vol_depths$Vol_m3[6])+(TP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[6:7]),
                                                              ifelse(hypo_top_depth_m == 9, TP_9, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+## Fill in some 2021 data where we're missing 'in between' depths
+TP_ugL <- TP_ugL %>% 
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 1.6, TP_1.6, epi_TP),
+         hypo_TP = ifelse(is.na(hypo_TP) & hypo_top_depth_m == 3.8, ((TP_5*(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4]+vol_depths$Vol_m3[5]))+(TP_9*(vol_depths$Vol_m3[6]+vol_depths$Vol_m3[7])))/sum(vol_depths$Vol_m3[3:7]),hypo_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 1.6, TP_0.1, epi_TP),
+         epi_hypo = ifelse(is.na(hypo_TP) & hypo_top_depth_m == 3.8, ((TP_3.8*vol_depths$Vol_m3[3])+(TP_5*vol_depths$Vol_m3[4])+(TP_6.2*vol_depths$Vol_m3[5])+(TP_8*(vol_depths$Vol_m3[6]+vol_depths$Vol_m3[7])))/sum(vol_depths$Vol_m3[3:7]),hypo_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 3.8, ((TP_0.1*(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TP_3.8*vol_depths$Vol_m3[3]))/sum(vol_depths$Vol_m3[1:3]),epi_TP),
+         hypo_TP = ifelse(is.na(hypo_TP) & hypo_top_depth_m == 5, ((TP_5*(vol_depths$Vol_m3[4]+vol_depths$Vol_m3[5]))+(TP_9*(vol_depths$Vol_m3[7]+vol_depths$Vol_m3[6])))/sum(vol_depths$Vol_m3[4:7]),hypo_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 3.8, TP_0.1 ,epi_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 3.8, TP_1.6 ,epi_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 5, ((TP_0.1*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TP_5*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_TP),
+         hypo_TP = ifelse(is.na(hypo_TP) & hypo_top_depth_m == 6.2, ((TP_8*sum(vol_depths$Vol_m3[5]+vol_depths$Vol_m3[6]))+(TP_9*vol_depths$Vol_m3[7]))/sum(vol_depths$Vol_m3[5:7]),hypo_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 5, ((TP_1.6*sum(vol_depths$Vol_m3[1]+vol_depths$Vol_m3[2]))+(TP_5*sum(vol_depths$Vol_m3[3]+vol_depths$Vol_m3[4])))/sum(vol_depths$Vol_m3[1:4]),epi_TP),
+         hypo_TP = ifelse(is.na(hypo_TP) & hypo_top_depth_m == 6.2, TP_9, hypo_TP)) %>% 
+  
+  mutate(epi_TP = ifelse(is.na(epi_TP) & epi_bottom_depth_m == 5, ((TP_0.1*vol_depths$Vol_m3[1])+(TP_1.6*vol_depths$Vol_m3[2])+(TP_3.8*(vol_depths$Vol_m3[3])+vol_depths$Vol_m3[4]))/sum(vol_depths$Vol_m3[1:4]),epi_TP))
 
 ## Combine all Chem data
 chem_epi_hypo <- plyr::join_all(list(TN_ugL,TP_ugL),by=c("DateTime","thermo.depth","epi_bottom_depth_m","hypo_top_depth_m"),type="left") %>% 
@@ -859,15 +921,6 @@ met_daily <- met %>%
             Albedo_Average_W_m2 = mean(Albedo_Average_W_m2,na.rm=TRUE)) %>% 
   filter(ShortwaveRadiationUp_Average_W_m2 < 450) # Remove 2018-04-05 - maintenance and only measured afternoon values!
 
-## Estimate contribution from Precip. and Evap. to FCR
-## FCR Surface area: 0.119 km2
-## Precip: as m3/s
-fcr_surface_area_m2 = 0.119*1000000
-
-precip <- met_daily %>% 
-  select(DateTime,rain_tot_mm) %>% 
-  mutate(Precip_m3_s = rain_tot_mm*(fcr_surface_area_m2*1000000)*1e-9/(24*60*60))
-
 ## Then plot total rainfall and shortwave radiation with thermocline depth and DO
 ## Plot timeseries of thermocline depth for SI
 vw_do_plot <- do_mgL %>%  
@@ -1018,35 +1071,20 @@ arima_epi <- left_join(arima_epi,chem_epi_hypo,by="DateTime") %>%
 arima_hypo <- left_join(arima_hypo,chem_epi_hypo,by="DateTime") %>% 
   select(-epi_TN,-epi_TP)
 
-## Constrain to stratified time periods ()
+## Constrain to stratified time periods
 arima_epi <- arima_epi %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<=320) %>% 
-  select(-doy)
+  select(DateTime,DOC_mgL,DOC_processing_mgL,VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,rain_tot_mm,ShortwaveRadiationUp_Average_W_m2,Inflow_m3s,thermo.depth,epi_TN,epi_TP)
 
-
-
-
-################## TO DO!!!!! ########################################
-## CHECK TP AND TN DATA FROM 2019
-## PLOT AS BOX PLOTS, BUT DON'T INCLUDE IN ARIMA MODELING
-
-## MAKE SURE TO ONLY INLCUDE STRATIFIED DATA (SEE HYPO ABOVE)
-
-## CHECK TEMP AND DO SAT DATA IN 2021???
-
-
-
-
-mean_model_timepoints <- final_doc_inputs_g %>% 
-  mutate(doy = yday(DateTime),
-         mean_doc_inflow_g_comb = mean_doc_inflow_g+mean_doc_fc_inflow_g) %>% 
+arima_hypo <- arima_hypo %>% 
+  mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<=320) %>% 
+  select(DateTime,DOC_mgL,DOC_processing_mgL,VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,rain_tot_mm,Inflow_m3s,anoxia_time_d,thermo.depth,Epi_Chla_ugL,hypo_TN,hypo_TP)
 
 ## Calculate stats for env parameters - limited to summer stratified period (May-Oct)
 epi_stats <- arima_epi %>% 
   mutate(month = month(DateTime)) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(5,6,7,8,9,10)) %>%
   select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,epi_TN,epi_TP) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE)%>% 
   pivot_longer(cols = contains("fn"),
@@ -1065,7 +1103,6 @@ epi_stats <- epi_stats %>%
 
 hypo_stats <- arima_hypo %>% 
   mutate(month = month(DateTime)) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(5,6,7,8,9,10)) %>% 
   select(VW_Temp_C,VW_DO_pSat,VW_Chla_ugL,hypo_TN,hypo_TP,rain_tot_mm,ShortwaveRadiationUp_Average_W_m2,Inflow_m3s,wtr_d) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE) %>% 
   pivot_longer(cols = contains("fn"),
@@ -1084,29 +1121,27 @@ hypo_stats <- hypo_stats %>%
 
 ## Calculate DO_mgL stats, too
 do_mgL %>%  mutate(month = month(DateTime)) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(5,6,7,8,9,10)) %>%
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
   select(epi_DO,hypo_DO) %>% 
   summarise_all(list(min,max,median,mean,sd),na.rm=TRUE)
 
 ###############################################################################
 ## Check correlations among environmental variables - what needs to be removed?
 # Epi
-epi_cor = as.data.frame(cor(arima_epi[,3:16],use = "complete.obs"),method=c("pearson"))
+epi_cor = as.data.frame(cor(arima_epi[,4:12],use = "complete.obs"),method=c("pearson"))
 write_csv(epi_cor, "./Figs/epi_cor_fc.csv")
 
-chart.Correlation(arima_epi[,3:16],histogram = TRUE,method=c("pearson"))
+chart.Correlation(arima_epi[,4:12],histogram = TRUE,method=c("pearson"))
 # Remove Epi TN
 arima_epi <- arima_epi %>% 
   select(-epi_TN)
 
 # Hypo
-hypo_cor = as.data.frame(cor(arima_hypo[,3:18],use = "complete.obs"),method=c("pearson"))
+hypo_cor = as.data.frame(cor(arima_hypo[,4:13],use = "complete.obs"),method=c("pearson"))
 write_csv(hypo_cor, "./Figs/hypo_cor_fc.csv")
 
-chart.Correlation(arima_hypo[,3:18],histogram = TRUE,method=c("pearson"))
-# Remove Hypo TN
-arima_hypo <- arima_hypo %>% 
-  select(-hypo_TN)
+chart.Correlation(arima_hypo[,4:13],histogram = TRUE,method=c("pearson"))
 
 ###############################################################################
 ## Check for skewness following MEL script!
@@ -1115,7 +1150,7 @@ Math.cbrt <- function(x) {
 }
 
 # Epi
-for (i in 3:15){
+for (i in 2:12){
   print(colnames(arima_epi)[i])
   var <- arima_epi[,i]
   hist(as.matrix(var), main = colnames(arima_epi)[i])
@@ -1130,9 +1165,9 @@ for (i in 3:15){
   var <- (arima_epi[,i]^2)
   hist(as.matrix(var), main = c("sq",colnames(arima_epi)[i]))
 }
-# Nothing: DO, SW Radiation, Thermo, rain
-# Log: DOC, Chla, Inflow, wtr, SRP
-# Cube root: DOC processing, TP, DIN
+# Nothing: DO, SW Radiation, Thermo, rain, TP
+# Log: DOC, Chla, Inflow
+# Cube root: DOC processing
 # sqrt: Temp
 
 # Transform and scale data
@@ -1140,17 +1175,13 @@ arima_epi_scale <- arima_epi %>%
   mutate(DOC_mgL = log(DOC_mgL),
          VW_Chla_ugL = log(VW_Chla_ugL),
          Inflow_m3s = log(Inflow_m3s),
-         wtr_d = log(wtr_d),
          DOC_processing_mgL = Math.cbrt(DOC_processing_mgL),
-         VW_Temp_C = sqrt(VW_Temp_C),
-         epi_TP = Math.cbrt(epi_TP),
-         epi_DIN = Math.cbrt(epi_DIN),
-         epi_SRP = Math.cbrt(epi_SRP))
+         VW_Temp_C = sqrt(VW_Temp_C))
 
-arima_epi_scale[,3:15] <- scale(arima_epi_scale[,3:15])
+arima_epi_scale[,2:11] <- scale(arima_epi_scale[,2:11])
 
 # Hypo
-for (i in 3:17){
+for (i in 2:13){
   print(colnames(arima_hypo)[i])
   var <- arima_hypo[,i]
   hist(as.matrix(var), main = colnames(arima_hypo)[i])
@@ -1166,23 +1197,21 @@ for (i in 3:17){
   hist(as.matrix(var), main = c("sq",colnames(arima_hypo)[i]))
 }
 # Nothing: DOC, DO, SW Radiation, Thermo, Anoxia_time, rain
-# Log: Chla_hypo, Inflow, Chla_epi, wtr
-# Cube root: DOC_processing, TP, DIN
-# sqrt: Temp, SRP
+# Log: Chla_hypo, Inflow, Chla_epi, TN, TP
+# Cube root: DOC_processing
+# sqrt: Temp
 
 # Transform and scale data
 arima_hypo_scale <- arima_hypo %>% 
   mutate(DOC_processing_mgL = Math.cbrt(DOC_processing_mgL),
          VW_Chla_ugL = log(VW_Chla_ugL),
          Inflow_m3s = log(Inflow_m3s),
-         wtr_d = log(wtr_d),
          VW_Temp_C = sqrt(VW_Temp_C),
          Epi_Chla_ugL = log(Epi_Chla_ugL),
-         hypo_TP = Math.cbrt(hypo_TP),
-         hypo_DIN = Math.cbrt(hypo_DIN),
-         hypo_SRP = log(hypo_SRP))
+         hypo_TP = log(hypo_TP),
+         hypo_TN = log(hypo_TN))
 
-arima_hypo_scale[,3:17] <- scale(arima_hypo_scale[,3:17])
+arima_hypo_scale[,2:13] <- scale(arima_hypo_scale[,2:13])
 
 ###############################################################################
 
@@ -1192,39 +1221,32 @@ arima_hypo_scale[,3:17] <- scale(arima_hypo_scale[,3:17])
 
 ###############################################################################
 ## Check Assumption about number of AR terms
+png("./Figs/Fig_SX_PACF.png", width = 750, height = 650)
+par(mfrow=c(2,2))
+
 ## [DOC] Epi - limit to AR(2)
-plot(arima_epi$DOC_mgL,type="b")
-PlotACF(arima_epi$DOC_mgL)
-acf2(arima_epi$DOC_mgL,xlim=c(1,20),na.action=na.pass)
-pacf(arima_epi$DOC_mgL,xlim=c(1,20),na.action=na.pass)
+pacf(arima_epi$DOC_mgL,xlim=c(1,20),na.action=na.pass,main="Epi. DOC (mg per L)")
 
 # [DOC] Hypo - limit to AR(2)
-plot(arima_hypo$DOC_mgL,type="b")
-PlotACF(arima_hypo$DOC_mgL)
-acf2(arima_hypo$DOC_mgL,xlim=c(1,20),na.action=na.pass)
-pacf(arima_hypo$DOC_mgL,xlim=c(1,20),na.action=na.pass)
+pacf(arima_hypo$DOC_mgL,xlim=c(1,20),na.action=na.pass,main="Hypo. DOC (mg per L)")
 
 # DOC processing epi - limit to AR(1)
-plot(arima_epi$DOC_processing_mgL,type="b")
-PlotACF(arima_epi$DOC_processing_mgL)
-acf2(arima_epi$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass)
-pacf(arima_epi$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass)
+pacf(arima_epi$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass,main="Epi. DOC Processing (kg per d)")
 
 # DOC processing hypo - limit to AR(1)
-plot(arima_hypo$DOC_processing_mgL,type="b")
-PlotACF(arima_hypo$DOC_processing_mgL)
-acf2(arima_hypo$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass)
-pacf(arima_hypo$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass)
+pacf(arima_hypo$DOC_processing_mgL,xlim=c(1,20),na.action=na.pass,main="Hypo. DOC Processing (kg per d)")
+
+dev.off()
 
 ###############################################################################
 # Epi
 colnames(arima_epi_scale)
 
-cols <- c(5:10,12:13) # UPDATE THIS TO THE ENV. VARIABLES; constrain to TP ONLY for nutrients; remove WRT (mirrors Inflow)
+cols <- c(4:11) # UPDATE THIS TO THE ENV. VARIABLES
 sub.final <- NULL
 final <- NULL
 
-y <- arima_epi_scale[,3] # UPDATE THIS TO DOC CONCENTRATION
+y <- arima_epi_scale[,2] # UPDATE THIS TO DOC CONCENTRATION
 
 for (i in 1:length(cols)){
   my.combn <- combn(cols,i)
@@ -1234,7 +1256,7 @@ for (i in 1:length(cols)){
     
     skip_to_next <- FALSE
     
-    tryCatch(fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,my.combn[,j]]),max.p = 2, max.P = 2), error = function(e) { skip_to_next <<- TRUE}) # Constrain to 2 AR terms
+    tryCatch(fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,my.combn[,j]]),max.p = 1, max.P = 1), error = function(e) { skip_to_next <<- TRUE}) # Constrain to 1 AR term
     
     if(skip_to_next) { 
       sub.sub.final[j,4] <- NA
@@ -1258,7 +1280,7 @@ final <- rbind(final, sub.final)
 #run null models for comparison
 null <- matrix(NA, nrow = 1, ncol = 4)
 
-fit <- auto.arima(y, max.p = 2, max.P = 2)
+fit <- auto.arima(y, max.p = 1, max.P = 1)
 null[1,4] <- fit$aicc
 null[1,3] <- NA
 null[1,2] <- NA
@@ -1273,10 +1295,12 @@ final <- distinct(final)
 best <- final %>%
   slice(which.min(AICc))
 
+best
+
 best.vars <- colnames(arima_epi_scale)[combn(cols,4)[,24]] # UPDATE THIS FOLLOWING 'BEST'
 best.vars.cols <- combn(cols,4)[,24] # UPDATE THIS FOLLOWING 'BEST'
 
-best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.p = 2, max.P = 2)
+best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
 hist(resid(best.fit))
 accuracy(best.fit)
@@ -1300,7 +1324,7 @@ for (i in 1:nrow(good)){
   good.vars.cols.1 <- combn(cols,good[i,2])[,good[i,3]]
   
   
-  good.fit.1 <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,good.vars.cols.1]),max.p = 2, max.P = 2)
+  good.fit.1 <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,good.vars.cols.1]),max.p = 1, max.P = 1)
   print(good.fit.1)
   print(forecast::accuracy(good.fit.1))
   
@@ -1311,11 +1335,11 @@ for (i in 1:nrow(good)){
 # Hypo
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10,12:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only! and remove WRT!
+cols <- c(4:13) # UPDATE THIS TO THE ENV. VARIABLES
 sub.final <- NULL
 final <- NULL
 
-y <- arima_hypo_scale[,3] # UPDATE THIS TO DOC CONCENTRATION
+y <- arima_hypo_scale[,2] # UPDATE THIS TO DOC CONCENTRATION
 
 for (i in 1:length(cols)){
   my.combn <- combn(cols,i)
@@ -1366,8 +1390,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,5)[,26]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,5)[,26] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,4)[,37]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,4)[,37] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 2, max.P = 2)
 best.fit
@@ -1404,11 +1428,11 @@ for (i in 1:nrow(good)){
 ## Epi DOC Processing
 colnames(arima_epi_scale)
 
-cols <- c(5:10,12:13) # UPDATE THIS TO THE ENV. VARIABLES - include TP only; remove WRT!
+cols <- c(4:11) # UPDATE THIS TO THE ENV. VARIABLES - include TP only; remove WRT!
 sub.final <- NULL
 final <- NULL
 
-y <- arima_epi_scale[,4] # UPDATE THIS TO DOC PROCESSING
+y <- arima_epi_scale[,3] # UPDATE THIS TO DOC PROCESSING
 
 for (i in 1:length(cols)){
   my.combn <- combn(cols,i)
@@ -1459,8 +1483,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_epi_scale)[combn(cols,3)[,26]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,3)[,26] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_epi_scale)[combn(cols,4)[,45]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,4)[,45] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_epi_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
@@ -1497,11 +1521,11 @@ for (i in 1:nrow(good)){
 ## Hypo DOC processing
 colnames(arima_hypo_scale)
 
-cols <- c(5:7,10,12:15) # UPDATE THIS TO THE ENV. VARIABLES - exclude Rainfall and SW radiation (primarily surface processes); include TP only! and remove WRT!
+cols <- c(4:13) # UPDATE THIS TO THE ENV. VARIABLES
 sub.final <- NULL
 final <- NULL
 
-y <- arima_hypo_scale[,4] # UPDATE THIS TO DOC PROCESSING
+y <- arima_hypo_scale[,3] # UPDATE THIS TO DOC PROCESSING
 
 for (i in 1:length(cols)){
   my.combn <- combn(cols,i)
@@ -1552,8 +1576,8 @@ best <- final %>%
 
 best
 
-best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,36]] # UPDATE THIS FOLLOWING 'BEST'
-best.vars.cols <- combn(cols,3)[,36] # UPDATE THIS FOLLOWING 'BEST'
+best.vars <- colnames(arima_hypo_scale)[combn(cols,3)[,56]] # UPDATE THIS FOLLOWING 'BEST'
+best.vars.cols <- combn(cols,3)[,56] # UPDATE THIS FOLLOWING 'BEST'
 
 best.fit <- auto.arima(y,xreg = as.matrix(arima_hypo_scale[,best.vars.cols]),max.p = 1, max.P = 1)
 best.fit
@@ -1571,7 +1595,7 @@ good <- final %>%
   mutate(Num.covars = as.numeric(Num.covars),
          Covar.cols = as.numeric(Covar.cols))
 
-for (i in 1:nrow(good)){
+for (i in 1:nrow(good)){0.16
   good.vars.1 <- colnames(arima_hypo_scale)[combn(cols,good[i,2])[,good[i,3]]]
   
   good.vars.1
