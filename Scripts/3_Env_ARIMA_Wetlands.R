@@ -821,6 +821,23 @@ inflow_plot <-
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
+## Plot seasonal discharge by year
+func_order <- c("Pre-Stratification","Stratified Period","Post-Stratification")
+
+season_inflow <- inflow_daily %>% 
+  mutate(doy = yday(DateTime),
+         year = year(DateTime)) %>% 
+  mutate(season = ifelse(doy>=1 & doy<122, "Pre-Stratification", 
+                         ifelse(doy>=122 & doy<=320, "Stratified Period","Post-Stratification"))) %>% 
+  ggplot()+
+  geom_boxplot(aes(x=as.factor(year),y=mean,fill=factor(season,func_order)))+
+  scale_fill_manual(values=c("#9B9B9B","#F0B670","#7EBDC2"))+
+  ylab(expression(paste("Primary Inflow (m"^3*" s"^-1*")")))+
+  xlab("")+
+  theme_bw(base_size = 15) +
+  theme(legend.title=element_blank())+
+  theme(legend.position="top")
+
 # Format for ARIMA modeling - sum Weir inflow and FC inflow = daily inflow for ARIMA modeling
 final_inflow_m3s <- left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>% 
   mutate(Inflow_m3s = mean+est_flow_cms) %>% 
@@ -839,54 +856,17 @@ wtr_d %>%
   mutate(se = sd/length(wtr_d$wtr_d))
 
 ## Plot WRT annually for each summer stratified period
-wrt_2017 <- wtr_d %>% 
-  filter(month %in% c(5,6,7,8,9,10,11) & year==2017) %>% 
-  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
+annual_wrt <- ggplot(wtr_d,mapping=aes(x=as.character(year),y=log10(wtr_d)))+
   geom_boxplot(size=0.8,alpha=0.5)+
   xlab("")+
-  ylab("WRT (d)")+
+  ylab("logt10(WRT, d)")+
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
-wrt_2018 <- wtr_d %>% 
-  filter(month %in% c(5,6,7,8,9,10,11) & year==2018) %>% 
-  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
-  geom_boxplot(size=0.8,alpha=0.5)+
-  xlab("")+
-  ylab("WRT (d)")+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
+ggarrange(season_inflow, annual_wrt, ncol=1, nrow=2, labels=c("A.","B."),
+          font.label=list(face="plain",size=15))
 
-wrt_2019 <- wtr_d %>% 
-  filter(month %in% c(5,6,7,8,9,10,11) & year==2019) %>% 
-  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
-  geom_boxplot(size=0.8,alpha=0.5)+
-  xlab("")+
-  ylab("WRT (d)")+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-wrt_2020 <- wtr_d %>% 
-  filter(month %in% c(5,6,7,8,9,10,11) & year==2020) %>% 
-  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
-  geom_boxplot(size=0.8,alpha=0.5)+
-  xlab("")+
-  ylab("WRT (d)")+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-wrt_2021 <- wtr_d %>% 
-  filter(month %in% c(5,6,7,8,9,10,11) & year==2021) %>% 
-  ggplot(mapping=aes(x=as.character(year),y=wtr_d))+
-  geom_boxplot(size=0.8,alpha=0.5)+
-  xlab("")+
-  ylab("WRT (d)")+
-  theme_classic(base_size = 15)+
-  theme(legend.title=element_blank())
-
-ggarrange(wrt_2017,wrt_2018,wrt_2019,wrt_2020,wrt_2021,ncol=3,nrow=2)
-
-ggsave("./Figs/SI_WRT_Boxplot.png",dpi=800,width=8,height=5)
+ggsave("./Figs/SI_SeasonalInflow_WRT.png",dpi=800,width=8,height=8)
 
 ###############################################################################
 ## Plot Temp, DO, Chla, and Inflow for main MS
