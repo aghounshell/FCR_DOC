@@ -1109,7 +1109,7 @@ do_mgL %>%  mutate(month = month(DateTime)) %>%
 ###############################################################################
 ## Check correlations among environmental variables - what needs to be removed?
 # Epi
-epi_cor = as.data.frame(cor(arima_epi[,4:12],use = "complete.obs"),method=c("pearson"))
+epi_cor = as.data.frame(cor(arima_epi[,2:12],use = "complete.obs"),method=c("pearson"))
 write_csv(epi_cor, "./Figs/epi_cor_fc.csv")
 
 chart.Correlation(arima_epi[,4:12],histogram = TRUE,method=c("pearson"))
@@ -1118,10 +1118,10 @@ arima_epi <- arima_epi %>%
   select(-epi_TN)
 
 # Hypo
-hypo_cor = as.data.frame(cor(arima_hypo[,4:13],use = "complete.obs"),method=c("pearson"))
+hypo_cor = as.data.frame(cor(arima_hypo[,2:13],use = "complete.obs"),method=c("pearson"))
 write_csv(hypo_cor, "./Figs/hypo_cor_fc.csv")
 
-chart.Correlation(arima_hypo[,4:13],histogram = TRUE,method=c("pearson"))
+chart.Correlation(arima_hypo[,2:13],histogram = TRUE,method=c("pearson"))
 
 ###############################################################################
 ## Check for skewness following MEL script!
