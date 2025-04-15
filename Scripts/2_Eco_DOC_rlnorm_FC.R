@@ -17,7 +17,8 @@
 ### Modified: 15 Jan. 2025, A. Hounshell
 ## Following reviewer comments, mainly:
 ## Update C-Q Relationship
-## Incorporate estimate for Falling Creek inflow (FC) in addition to the contribution from the weir
+## Incorporate estimate for Falling Creek inflow (FC) in addition to the 
+## contribution from the primary inflow (weir; Tunnel Branch, FC)
 
 ###############################################################################
 # Clear workspace
@@ -34,7 +35,8 @@ pacman::p_load(tidyverse,ggplot2,ggpubr,rMR,lme4,PerformanceAnalytics,astsa,cowp
 ###############################################################################
 ## Load in various data-streams for box model
 # Import Lake Analyzer thermocline results to determine median thermocline depth
-# See: LakeAnalyzer_thermo.R - from 2016-2021
+# See: 1_LakeAnalyzer_thermo.R - from 2016-2021
+
 # Combining both CTD and YSI data to calculate thermocline depth from cast data
 # collected at the catwalk
 la_results <- read.csv("./Data/rev_FCR_results_LA.csv") %>% 
@@ -123,8 +125,8 @@ for (i in 1:length(inflow_daily_full$DateTime)){
   }
 }
 
-### Thinking about contribution of wetlands inflow (Falling Creek)
-## Load in discrete discharge measurements from weir vs. wetlands for 2019-2021
+### Thinking about contribution of secondary inflow (Falling Creek, FC)
+## Load in discrete discharge measurements from weir/TB vs. FC for 2019-2021
 #inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/454/5/555117021ec0697034fd6dec7f6f7979"
 #infile1 <- paste0(getwd(),"/Data/ManualDischarge_2019_2021.csv")
 #download.file(inUrl1,infile1,method="curl")
@@ -148,7 +150,7 @@ fc_flow_test <- data.frame(weir_flow=seq(min(inflow_daily$mean_flow_cms,na.rm=TR
 
 fc_flow_test$wetlands <- 10^(fc_flow_mod$coefficients[2]*log10(fc_flow_test$weir_flow)+fc_flow_mod$coefficients[1])
 
-## Create daily times series of wetlands (Falling Creek Inflow) - based on weir inflow
+## Create daily times series of FC - based on weir (TB) inflow
 FC_flow_daily_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
 FC_flow_daily_full <- FC_flow_daily_full %>% 
   dplyr::rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
@@ -292,7 +294,8 @@ for (i in 1:length(doc_inflow_full$DateTime)){
   doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
-## Then check relationship with flow and DOC at Falling Creek- use to estimate DOC concentration at site 200
+## Then check relationship with flow and DOC at Falling Creek- use to estimate 
+## DOC concentration at site 200 (FC)
 discrete_q <- discrete_q %>% 
   left_join(chem_200,by=c("DateTime","Site"))
 
@@ -894,7 +897,7 @@ write.csv(doc_entr, "./Data/doc_entr.csv",row.names=FALSE)
 doc_epi_process_g <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # DOC epi processing for each time point
 doc_epi_process_mgL <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
 
-# Incorporate 10% uncertainty in p
+# Incorporate +/-10% uncertainty in p
 p = 0.74 # From Carey et al. 2018 - percentage of discharge to the epi vs. hypo; assume 100% of FC goes to Epi.
 
 p_error <- rnorm(n=1000,mean=p,sd=(p*0.10)/2)

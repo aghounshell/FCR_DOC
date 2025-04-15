@@ -19,7 +19,10 @@
 ## Updates following DWH code-review (thanks, Dexter!!)
 
 ### Modified: 14 Feb. 2025, A. Hounshell
-## Updating to include model output which incorporates FC input (wetlands)
+## Updating to include model output which incorporates Falling Creek (FC) inputs
+## Include total nutrients (TN, TP) at deepest point as explantory variables
+## in ARIMA modeling
+## Use PACF to ID important AR lags
 
 ###############################################################################
 ## Clear workspace
@@ -34,13 +37,13 @@ pacman::p_load(tidyverse,ggplot2,ggpubr,zoo,scales,plyr,ggridges,
                lubridate,lognorm,forecast,utils,igraph,RColorBrewer,PerformanceAnalytics)
 
 ###############################################################################
-## Load in Epi and Hypo V.W. DOC concentrations - from Eco_DOC_rlnorm_Wetlands.R
+## Load in Epi and Hypo V.W. DOC concentrations - from Eco_DOC_rlnorm_FC.R
 doc_mgL <- read.csv("./Data/EpiHypo_Weir_FC_DOC.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>% 
   dplyr::rename(Depth = Loc)
 
 ###############################################################################
-## Add in DOC processing - calculated from Eco_DOC_rlnorm_Wetlands.R
+## Add in DOC processing - calculated from Eco_DOC_rlnorm_FC.R
 doc_processing <- read_csv("./Data/20Mar25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
@@ -92,7 +95,7 @@ hypo_distribution <- doc_proc_g %>%
   theme_ridges()+
   theme(legend.position = "none")
 
-### Load in model summary from 2_Eco_DOC_rlnorm.R
+### Load in model summary from 2_Eco_DOC_rlnorm_FC.R
 all_summary <- read.csv("./Data/model_summary_fc.csv")
 
 ## Plot
@@ -789,8 +792,8 @@ ggarrange(tn_plot,TP_plot,ncol=1,nrow=2, labels = c("A.", "B."),
 ggsave("./Figs/SI_FCR50_TotalNuts.jpg",width=10,height=6,units="in",dpi=320)
 
 ###############################################################################
-## Load in daily inflow - from Eco_DOC_rlnorm.R
-## Need to also include FC input - following Eco_DOC_rlnorm_Wetlands.R
+## Load in daily inflow - from Eco_DOC_rlnorm_FC.R
+## Now includes both TB and FC input
 inflow_daily <- read.csv("./Data/inflow_daily.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
@@ -843,6 +846,16 @@ final_inflow_m3s <- left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>%
   mutate(Inflow_m3s = mean+est_flow_cms) %>% 
   select(DateTime,Inflow_m3s)
 
+# Estimate percentage of of TB vs. FC flow
+left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>% 
+  mutate(Inflow_m3s = mean+est_flow_cms) %>% 
+  mutate(perc_tb = mean/Inflow_m3s*100,
+         perc_fc = est_flow_cms/Inflow_m3s*100) %>% 
+  summarise(mean_tb = mean(perc_tb,na.rm=TRUE),
+            mean_fc = mean(perc_fc,na.rm=TRUE),
+            sd_tb = sd(perc_tb,na.rm=TRUE),
+            sd_fc = sd(perc_fc,na.rm=TRUE))
+
 # Calculate residence time assuming full pond
 wtr_d <- final_inflow_m3s %>% 
   mutate(wtr_d = (310000)/Inflow_m3s/60/60/24,
@@ -869,7 +882,7 @@ ggarrange(season_inflow, annual_wrt, ncol=1, nrow=2, labels=c("A.","B."),
 ggsave("./Figs/SI_SeasonalInflow_WRT.png",dpi=800,width=8,height=8)
 
 ###############################################################################
-## Plot Temp, DO, Chla, and Inflow for main MS
+## Plot Temp, DO, Chla, and Total Inflow for main MS
 ggarrange(temp_plot,do_plot,chla_plot,inflow_plot,ncol=1,nrow=4, labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
