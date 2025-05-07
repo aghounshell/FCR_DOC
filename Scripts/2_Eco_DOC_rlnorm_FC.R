@@ -238,21 +238,9 @@ doc_100 <- left_join(chem_100,inflow_daily,by="DateTime") %>%
 ## Define C-Q relationship: use log relationship
 cq_mod_log <- lm(DOC_mgL~log10(mean_flow_cms),data=doc_100)
 
-docvinflow <- doc_100 %>% 
+doc_100 %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  ggplot(mapping=aes(x=log10(mean),y=DOC_mgL,color=as.factor(year)))+
-  geom_point(size=1.5)+
-  geom_smooth(method='lm')+ 
-  scale_x_continuous(name=expression(paste("log"[10]*"(Inflow) (m"^3*"s"^-1*")")), breaks=c(-4,-3,-2,-1), label=c(0.0001,0.001,0.01,0.1))+
-  ylab(expression(paste("DOC (mg L"^-1*")")))+
-  ylim(0,5)+
-  theme_classic(base_size=15)+
-  theme(legend.title=element_blank())+
-  theme(legend.position="top")
-
-docvinflow_all <- doc_100 %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
-  ggplot(mapping=aes(x=log10(mean),y=DOC_mgL))+
+  ggplot(mapping=aes(x=log10(mean_flow_cms),y=DOC_mgL))+
   geom_point(size=1.5)+
   geom_smooth(method='lm')+ 
   scale_x_continuous(name=expression(paste("log"[10]*"(Inflow) (m"^3*"s"^-1*")")), breaks=c(-4,-3,-2,-1), label=c(0.0001,0.001,0.01,0.1))+
@@ -260,10 +248,7 @@ docvinflow_all <- doc_100 %>%
   ylim(0,5)+
   theme_classic(base_size=15)
 
-combine <- ggarrange(docvinflow,docvinflow_all,nrow=1,ncol=2,labels = c("A.", "B."),
-                     font.label=list(face="plain",size=15))
-
-ggsave("./Figs/SI_DOCvInflow.png",combine,dpi=800,width=11,height=5)
+ggsave("./Figs/Rev_SI_DOCvInflow.png",dpi=800,width=9,height=5)
 
 ## Create boot-strapped parameters for DOC inflow (weir) - using MDL for the SD
 doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))

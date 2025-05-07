@@ -66,28 +66,49 @@ doc_proc_g <- doc_processing %>%
          month = month(DateTime))
 
 ## Plot distributions of doc_proc_g - for summer stratified period ONLY (May 1-Nov. 15)
-epi_distribution <- doc_proc_g %>% 
+summer_epi_processing <- doc_proc_g %>% 
   filter(Depth == "Epi") %>% 
   mutate(doy = yday(DateTime)) %>% 
-  filter(doy>=122 & doy<=320) %>% 
+  filter(doy>=122 & doy<=320)
+
+## Test statistical significance of distributions from zero
+t.test(summer_epi_processing$DOC_processing_g[summer_epi_processing$year==2017],mu=0)
+t.test(summer_epi_processing$DOC_processing_g[summer_epi_processing$year==2018],mu=0) # Sig. dif from zero (p<0.05)
+t.test(summer_epi_processing$DOC_processing_g[summer_epi_processing$year==2019],mu=0)
+t.test(summer_epi_processing$DOC_processing_g[summer_epi_processing$year==2020],mu=0) 
+t.test(summer_epi_processing$DOC_processing_g[summer_epi_processing$year==2021],mu=0) # Sig. diff rom zero (p<0.05)
+t.test(summer_epi_processing$DOC_processing_g,mu=0) # Sig. diff rom zero (p<0.05)
+
+epi_distribution <- summer_epi_processing %>% 
   ggplot(mapping=aes(x=DOC_processing_g/1000,y=as.factor(year),fill=as.factor(year)))+
   ggtitle("Epilimnion")+
-  geom_density_ridges()+
+  stat_density_ridges(quantile_lines=TRUE,quantiles=2)+
   geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
   xlab(expression(paste("Internal DOC (kg d"^-1*")")))+
   ylab("")+
   xlim(-242,255)+
+  scale_y_discrete(labels=c("2017","*2018","2019","2020","*2021"))+
   scale_fill_manual(values=c("#E7804B","#F0B670","#91B374","#7EBDC2", "#9B9B9B"))+
   theme_ridges()+
   theme(legend.position = "none")
 
-hypo_distribution <- doc_proc_g %>% 
+summer_hypo_processing <- doc_proc_g %>% 
   filter(Depth == "Hypo") %>% 
   mutate(doy = yday(DateTime)) %>% 
-  filter(doy>=122 & doy<=320) %>% 
+  filter(doy>=122 & doy<=320)
+
+## Test statistical significance of distributions from zero
+t.test(summer_hypo_processing$DOC_processing_g[summer_hypo_processing$year==2017],mu=0)
+t.test(summer_hypo_processing$DOC_processing_g[summer_hypo_processing$year==2018],mu=0)
+t.test(summer_hypo_processing$DOC_processing_g[summer_hypo_processing$year==2019],mu=0)
+t.test(summer_hypo_processing$DOC_processing_g[summer_hypo_processing$year==2020],mu=0)
+t.test(summer_hypo_processing$DOC_processing_g[summer_hypo_processing$year==2021],mu=0)
+t.test(summer_hypo_processing$DOC_processing_g,mu=0)
+
+hypo_distribution <-  summer_hypo_processing %>% 
   ggplot(mapping=aes(x=DOC_processing_g/1000,y=as.factor(year),fill=as.factor(year)))+
   ggtitle("Hypolimnion")+
-  geom_density_ridges()+
+  stat_density_ridges(quantile_lines=TRUE,quantiles=2)+
   geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
   xlab(expression(paste("Internal DOC (kg d"^-1*")")))+
   ylab("")+
@@ -176,9 +197,16 @@ thermo <- thermo %>%
 
 ## Check average thermo depth from April-Oct from 2017-2021
 thermo %>% 
-  mutate(month = month(DateTime)) %>% 
-  mutate(year = year(DateTime)) %>% 
-  filter(DateTime >= as.POSIXct("2017-01-01") & month %in% c(4,5,6,7,8,9)) %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  summarise_all(median,na.rm=TRUE)
+
+## Check by year, too!
+thermo %>% 
+  mutate(year = year(DateTime),
+         doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<=320) %>% 
+  group_by(year) %>% 
   summarise_all(median,na.rm=TRUE)
 
 ###############################################################################
@@ -468,9 +496,16 @@ doc_model_oxy <- left_join(doc_model_oxy,doc_mgL,by=c("DateTime","Depth"))
 wilcox.test(mean_doc_hypo_process_g~anoxia,doc_model_oxy)
 
 ## Plot distributions - oxic vs. anoxic
+## Test statistical significance of distributions from zero
+t.test(doc_model_oxy$mean_doc_hypo_process_g[doc_model_oxy$anoxia==1],mu=0)
+t.test(doc_model_oxy$mean_doc_hypo_process_g[doc_model_oxy$anoxia==0],mu=0)
+
+## Test that the two distributions are different
+t.test(doc_model_oxy$mean_doc_hypo_process_g[doc_model_oxy$anoxia==1],doc_model_oxy$mean_doc_hypo_process_g[doc_model_oxy$anoxia==0])
+
 hypo_oxy_proc <- doc_model_oxy %>% 
   ggplot(mapping=aes(x=mean_doc_hypo_process_g/1000,y=as.factor(anoxia),fill=as.factor(anoxia)))+
-  geom_density_ridges()+
+  stat_density_ridges(quantile_lines=TRUE,quantiles=2)+
   geom_vline(mapping=aes(xintercept=0),linetype="dashed")+
   scale_fill_manual(values=c("#7EBDC2", "#9B9B9B"))+
   scale_y_discrete(breaks=c("0","1"),
@@ -485,13 +520,16 @@ doc_model_oxy %>%
   group_by(anoxia) %>% 
   summarise_at(vars(DOC_mgL), funs(mean(., na.rm=TRUE)))
 
+## Test that the two distributions are different
+t.test(doc_model_oxy$DOC_mgL[doc_model_oxy$anoxia==1],doc_model_oxy$DOC_mgL[doc_model_oxy$anoxia==0])
+
 hypo_oxy_conc <- doc_model_oxy %>% 
   ggplot(mapping=aes(x=DOC_mgL,y=as.factor(anoxia),fill=as.factor(anoxia)))+
-  geom_density_ridges()+
+  stat_density_ridges(quantile_lines=TRUE,quantiles=2)+
   geom_vline(mapping=aes(xintercept=2.64),linetype="dashed")+ #oxic
   annotate("text", x = 2.8, y=1.2, label = "Oxic",angle = 90,size=5)+
   geom_vline(mapping=aes(xintercept=2.31),linetype="dashed")+ #anoxic
-  annotate("text", x = 2.15, y=3.1, label = "Anoxic",angle = 90,size=5)+
+  annotate("text", x = 2.4, y=3.1, label = "Anoxic",angle = 90,size=5)+
   scale_fill_manual(values=c("#7EBDC2", "#9B9B9B"))+
   scale_y_discrete(breaks=c("0","1"),
                    labels=c("Oxic", "Anoxic"))+
@@ -503,7 +541,7 @@ hypo_oxy_conc <- doc_model_oxy %>%
 ggarrange(hypo_oxy_proc,hypo_oxy_conc,ncol=1,nrow=2, labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/FigS6_Hypo_Oxy_FC.jpg",width=9,height=10,units="in",dpi=320)
+ggsave("./Figs/FigS6_Hypo_Oxy_FC.jpg",width=9,height=9,units="in",dpi=320)
 
 ###############################################################################
 ## Load in Flora data - Chla and community analysis
@@ -840,6 +878,32 @@ season_inflow <- inflow_daily %>%
   theme_bw(base_size = 15) +
   theme(legend.title=element_blank())+
   theme(legend.position="top")
+
+## Calculate mean stratified flow from TB and FC
+## For R2R
+inflow_daily %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<320) %>% 
+  select(mean) %>% 
+  summarize_all(mean,na.rm=TRUE)
+
+inflow_daily %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<320) %>% 
+  select(mean) %>% 
+  summarize_all(sd,na.rm=TRUE)
+
+inflow_daily_fc %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<320) %>% 
+  select(est_flow_cms) %>% 
+  summarize_all(mean,na.rm=TRUE)
+
+inflow_daily_fc %>% 
+  mutate(doy = yday(DateTime)) %>% 
+  filter(doy>=122 & doy<320) %>% 
+  select(est_flow_cms) %>% 
+  summarize_all(sd,na.rm=TRUE)
 
 # Format for ARIMA modeling - sum Weir inflow and FC inflow = daily inflow for ARIMA modeling
 final_inflow_m3s <- left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>% 

@@ -40,7 +40,8 @@ ctd <- read.csv('./Data/CTD_final_2013_2021.csv') %>% #read in observed CTD data
 
 ctd_50 <- ctd %>% 
   filter(Site==50) %>% 
-  dplyr::rename(time = Date)
+  dplyr::rename(time = Date) %>% 
+  arrange(time)
 
 # Import YSI observations from EDI: https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=198&revision=9
 # inUrl1 <- "https://pasta.lternet.edu/package/data/eml/edi/198/9/b3bd353312f9e37ca392e2a5315cc9da"
@@ -54,7 +55,8 @@ ysi <- read_csv('./Data/YSI_PAR_profiles_2013-2021.csv') %>%
 
 ysi_50 <- ysi %>% 
   filter(Site==50) %>% 
-  dplyr::rename(time = DateTime)
+  dplyr::rename(time = DateTime) %>% 
+  arrange(time)
 
 ### Merge data CTD and YSI datasets for FCR
 fcr_merge <- merge(ctd_50, ysi_50, by="time", all.x=TRUE, all.y=TRUE)
