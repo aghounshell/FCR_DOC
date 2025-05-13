@@ -29,8 +29,15 @@ wd <- getwd()
 setwd(wd)
 
 # Load libraries
-pacman::p_load(tidyverse,ggplot2,ggpubr,rMR,lme4,PerformanceAnalytics,astsa,cowplot,lubridate,dplR,zoo,naniar,
+install.packages("BiocManager")
+
+pacman::p_load(tidyverse,ggplot2,ggpubr,lme4,PerformanceAnalytics,astsa,cowplot,lubridate,dplR,zoo,naniar,
                DescTools,MuMIn,rsq,Metrics,truncnorm,ggridges)
+
+# Create data folder within directory structure
+if(file.exists("Figs")==FALSE){
+  dir.create(file.path(wd, "Figs"))
+}
 
 ###############################################################################
 ## Load in various data-streams for box model
@@ -248,7 +255,7 @@ doc_100 %>%
   ylim(0,5)+
   theme_classic(base_size=15)
 
-ggsave("./Figs/Rev_SI_DOCvInflow.png",dpi=800,width=9,height=5)
+ggsave("./Figs/Fig_S2_Weir_DOCvInflow.png",dpi=800,width=9,height=5)
 
 ## Create boot-strapped parameters for DOC inflow (weir) - using MDL for the SD
 doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
@@ -314,7 +321,7 @@ fc_doc_fig <- ggplot(discrete_q,mapping=aes(x=Flow_cms,y=DOC_mgL,color="Observed
 
 ggarrange(fc_flow_fig,fc_doc_fig,nrow=1,ncol=2,labels = c("A.", "B."),font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_DOCvInflow_FallingCreek.png",dpi=800,width=11,height=5)
+ggsave("./Figs/Fig_S1_DOCvInflow_FallingCreek.png",dpi=800,width=11,height=5)
 
 ## Calculate DOC inflow (Falling Creek) - from Site 200
 fc_doc_inflow_full <- as.data.frame(seq(as.POSIXct("2017-01-01",tz="EST"),as.POSIXct("2021-12-31",tz="EST"),by="days"))
@@ -494,7 +501,7 @@ doc_wgt <- doc_wgt %>%
 write.csv(doc_wgt, "./Data/EpiHypo_Weir_FC_DOC.csv",row.names=FALSE)
 
 ## Load, as needed
-#doc_wgt <- read.csv("./Data/EpiHypo_DOC.csv") %>% 
+#doc_wgt <- read.csv("./Data/EpiHypo_Weir_FC_DOC.csv") %>% 
 #  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 ## Plot vol weighted epi and hypo [DOC] and inflow [DOC]
@@ -595,7 +602,7 @@ year_box <- doc_wgt %>%
 ggarrange(year_box, ggarrange(all_box, ncol = 2, labels = c("B."),font.label=list(face="plain",size=15)), 
           nrow = 2, labels = "A.", font.label=list(face="plain",size=15)) 
 
-ggsave("./Figs/SI_DOC_Boxplots_R1.png",dpi=800,width=8,height=7)
+ggsave("./Figs/Fig_S4_DOC_Boxplots.png",dpi=800,width=8,height=7)
 
 ## Calculate stats for SI:
 doc_stats <- doc_wgt %>% 
@@ -643,8 +650,6 @@ for (j in 1:1000){
   }
 }
 
-write.csv(doc_lake_mass, "./Data/doc_lake_mass.csv",row.names=FALSE)
-
 ## Calculate total mass of inflow from weir
 doc_inflow_mass <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inflow_full$DateTime)))
 
@@ -653,8 +658,6 @@ for (j in 1:1000){
     doc_inflow_mass[i,j] <- as.numeric(doc_inflow_input[i,j])*as.numeric(inflow_model_input[i,j])*60*60*24
   }
 }
-
-write.csv(doc_inflow_mass, "./Data/doc_inflow_mass.csv",row.names=FALSE)
 
 ## Calculate total mass of inflow from FC
 fc_doc_inflow_mass <- as.data.frame(matrix(data=NA,ncol=1000,nrow=length(fc_doc_inflow_full$DateTime)))
@@ -665,8 +668,6 @@ for (j in 1:1000){
   }
 }
 
-write.csv(fc_doc_inflow_mass,"./Data/fc_doc_inflow_mass.csv")
-
 ### Calculate outflow from epi and hypo ###
 # Epi outflow = (weir inflow + FC inflow) * [DOC] at 0.1 m = g/d
 doc_epi_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime)))
@@ -676,8 +677,6 @@ for (j in 1:1000){
     doc_epi_mass_outflow[i,j] <- (inflow_model_input[i,j] + fc_flow_model_input[i,j])*doc_lake_model_input[i,j,1]*60*60*24
   }
 }
-
-write.csv(doc_epi_mass_outflow, "./Data/doc_epi_mass_outflow.csv",row.names=FALSE)
 
 # 'Outflow' to Epi from Hypo: concentration * outflow = mass/day
 doc_hypo_mass_outflow <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Mass of DOC outflow from the hypo
@@ -699,8 +698,6 @@ for (j in 1:1000){
     }
   }
 }
-
-write.csv(doc_hypo_mass_outflow, "./Data/doc_hypo_mass_outflow.csv",row.names=FALSE)
 
 ### Calculate [DOC]/dt for each time point ###
 
@@ -767,8 +764,6 @@ for (j in 1:1000){
   }
 }
 
-write.csv(epi_vol, "./Data/epi_vol.csv",row.names=FALSE)
-
 hypo_vol <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Volume of hypo for each time point
 
 for (j in 1:1000){
@@ -789,8 +784,6 @@ for (j in 1:1000){
   }
 }
 
-write.csv(hypo_vol, "./Data/hypo_vol.csv",row.names=FALSE)
-
 ## Now calculate DOC/dt for epi and hypo for each timepoint
 doc_dt_epi <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Change in DOC/dt for the epi
 
@@ -800,8 +793,6 @@ for (j in 1:1000){
   }
 }
 
-write.csv(doc_dt_epi, "./Data/doc_dt_epi.csv",row.names=FALSE)
-
 doc_dt_hypo <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_box_full$DateTime))) # Change in DOC/dt for the hypo
 
 for (j in 1:1000){
@@ -809,8 +800,6 @@ for (j in 1:1000){
     doc_dt_hypo[i+1,j] <- (doc_hypo_mass[i+1,j]-doc_hypo_mass[i,j])
   }
 }
-
-write.csv(doc_dt_hypo, "./Data/doc_dt_hypo.csv",row.names=FALSE)
 
 ### Calculate entrainment from hypo to epi for each time point ###
 # Loosely following FCR_DOCModel_edited_19May17 from Carey et al. 2018
@@ -872,8 +861,6 @@ for (i in 2:length(doc_box_full$DateTime)){
     doc_entr[i,] <- (doc_lake_mass[i,,2]+doc_lake_mass[i,,3]+doc_lake_mass[i,,4]+doc_lake_mass[i,,5])
   }
 }
-
-write.csv(doc_entr, "./Data/doc_entr.csv",row.names=FALSE)
 
 ###############################################################################
 ## Then calculate DOC internal loading:
@@ -1135,7 +1122,7 @@ epi_internal <- final_doc_inputs_g %>%
 ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S2_Epi_model_FC.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S5_Epi_model_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
 hypo_inflow <- final_doc_inputs_g %>% 
@@ -1266,7 +1253,7 @@ hypo_internal <- final_doc_inputs_g %>%
 ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S3_Hypo_Model_FC.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S6_Hypo_Model_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ### Thinking about ways to visualize the 'big picture'

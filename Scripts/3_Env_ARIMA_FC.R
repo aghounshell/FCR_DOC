@@ -167,7 +167,7 @@ ggarrange(ggarrange(model_summary,contribution_fig,ncol=2,labels=c("A.","B."),fo
           epi_distribution,hypo_distribution,
           nrow=3,ncol=1,labels = c("","C.", "D."),font.label=list(face="plain",size=15),heights = c(1, 0.7,0.7))
 
-ggsave("./Figs/Updated_Fig5_Model_Summary_FC.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig5_Model_Summary_FC.jpg",width=9,height=12,units="in",dpi=320)
 
 ###############################################################################
 ## Load in thermocline data - obtained from CTD and YSI casts
@@ -480,7 +480,7 @@ ggplot(hypo_do_mgL,mapping=aes(x=DateTime,y=anoxia_time_d))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   theme_classic(base_size = 15)
 
-ggsave("./Figs/Fig_S7_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
+ggsave("./Figs/Fig_S11_DaysAnoxia.jpg",width=7,height=4,units="in",dpi=320)
 
 ## Plot model results by oxic vs. anoxic waters in the hypolimnion
 doc_model_oxy <- left_join(hypo_do_mgL,doc_processing,by="DateTime") %>% 
@@ -541,7 +541,7 @@ hypo_oxy_conc <- doc_model_oxy %>%
 ggarrange(hypo_oxy_proc,hypo_oxy_conc,ncol=1,nrow=2, labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/FigS6_Hypo_Oxy_FC.jpg",width=9,height=9,units="in",dpi=320)
+ggsave("./Figs/FigS10_Hypo_Oxy_FC.jpg",width=9,height=9,units="in",dpi=320)
 
 ###############################################################################
 ## Load in Flora data - Chla and community analysis
@@ -827,7 +827,7 @@ TP_plot <- chem_epi_hypo %>%
 ggarrange(tn_plot,TP_plot,ncol=1,nrow=2, labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_FCR50_TotalNuts.jpg",width=10,height=6,units="in",dpi=320)
+ggsave("./Figs/Fig_S8_FCR50_TotalNuts.jpg",width=10,height=6,units="in",dpi=320)
 
 ###############################################################################
 ## Load in daily inflow - from Eco_DOC_rlnorm_FC.R
@@ -840,7 +840,7 @@ inflow_daily_fc <- read.csv("./Data/inflow_daily_fc.csv") %>%
 
 # Plot daily inflow for the study period
 inflow_plot <- 
-  ggplot(mapping=aes(x=DateTime,y=mean))+
+  ggplot(mapping=aes(x=DateTime,y=mean_flow_cms))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -851,8 +851,8 @@ inflow_plot <-
   annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_line(inflow_daily %>% na.omit(mean),mapping=aes(x=DateTime,y=mean,color="Weir"),size=1)+
-  geom_point(inflow_daily %>% na.omit(mean),mapping=aes(x=DateTime,y=mean,color="Weir"),size=2)+
+  geom_line(inflow_daily %>% na.omit(mean_flow_cms),mapping=aes(x=DateTime,y=mean_flow_cms,color="Weir"),size=1)+
+  geom_point(inflow_daily %>% na.omit(mean_flow_cms),mapping=aes(x=DateTime,y=mean_flow_cms,color="Weir"),size=2)+
   geom_line(inflow_daily_fc %>% drop_na(est_flow_cms),mapping=aes(x=DateTime,y=est_flow_cms,color="FC"),size=1)+
   scale_color_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"))+
   scale_fill_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"))+
@@ -871,7 +871,7 @@ season_inflow <- inflow_daily %>%
   mutate(season = ifelse(doy>=1 & doy<122, "Pre-Stratification", 
                          ifelse(doy>=122 & doy<=320, "Stratified Period","Post-Stratification"))) %>% 
   ggplot()+
-  geom_boxplot(aes(x=as.factor(year),y=mean,fill=factor(season,func_order)))+
+  geom_boxplot(aes(x=as.factor(year),y=mean_flow_cms,fill=factor(season,func_order)))+
   scale_fill_manual(values=c("#9B9B9B","#F0B670","#7EBDC2"))+
   ylab(expression(paste("Primary Inflow (m"^3*" s"^-1*")")))+
   xlab("")+
@@ -879,25 +879,25 @@ season_inflow <- inflow_daily %>%
   theme(legend.title=element_blank())+
   theme(legend.position="top")
 
-## Calculate mean stratified flow from TB and FC
+## Calculate mean_flow_cms stratified flow from TB and FC
 ## For R2R
 inflow_daily %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<320) %>% 
-  select(mean) %>% 
-  summarize_all(mean,na.rm=TRUE)
+  select(mean_flow_cms) %>% 
+  summarize_all(mean_flow_cms,na.rm=TRUE)
 
 inflow_daily %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<320) %>% 
-  select(mean) %>% 
+  select(mean_flow_cms) %>% 
   summarize_all(sd,na.rm=TRUE)
 
 inflow_daily_fc %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<320) %>% 
   select(est_flow_cms) %>% 
-  summarize_all(mean,na.rm=TRUE)
+  summarize_all(mean_flow_cms,na.rm=TRUE)
 
 inflow_daily_fc %>% 
   mutate(doy = yday(DateTime)) %>% 
@@ -907,16 +907,16 @@ inflow_daily_fc %>%
 
 # Format for ARIMA modeling - sum Weir inflow and FC inflow = daily inflow for ARIMA modeling
 final_inflow_m3s <- left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>% 
-  mutate(Inflow_m3s = mean+est_flow_cms) %>% 
+  mutate(Inflow_m3s = mean_flow_cms+est_flow_cms) %>% 
   select(DateTime,Inflow_m3s)
 
 # Estimate percentage of of TB vs. FC flow
 left_join(inflow_daily,inflow_daily_fc,by="DateTime") %>% 
-  mutate(Inflow_m3s = mean+est_flow_cms) %>% 
-  mutate(perc_tb = mean/Inflow_m3s*100,
+  mutate(Inflow_m3s = mean_flow_cms+est_flow_cms) %>% 
+  mutate(perc_tb = mean_flow_cms/Inflow_m3s*100,
          perc_fc = est_flow_cms/Inflow_m3s*100) %>% 
-  summarise(mean_tb = mean(perc_tb,na.rm=TRUE),
-            mean_fc = mean(perc_fc,na.rm=TRUE),
+  summarise(mean_flow_cms_tb = mean_flow_cms(perc_tb,na.rm=TRUE),
+            mean_flow_cms_fc = mean_flow_cms(perc_fc,na.rm=TRUE),
             sd_tb = sd(perc_tb,na.rm=TRUE),
             sd_fc = sd(perc_fc,na.rm=TRUE))
 
@@ -943,7 +943,7 @@ annual_wrt <- ggplot(wtr_d,mapping=aes(x=as.character(year),y=log10(wtr_d)))+
 ggarrange(season_inflow, annual_wrt, ncol=1, nrow=2, labels=c("A.","B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/SI_SeasonalInflow_WRT.png",dpi=800,width=8,height=8)
+ggsave("./Figs/Fig_S9_SeasonalInflow_WRT.png",dpi=800,width=8,height=8)
 
 ###############################################################################
 ## Plot Temp, DO, Chla, and Total Inflow for main MS
@@ -1073,7 +1073,7 @@ sw_plot <- met_daily %>%
 ggarrange(vw_do_plot,thermo_plot,rain_plot,sw_plot,ncol=1,nrow=4,common.legend = TRUE, labels = c("A.","B.","C.","D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S4_WaterCol_MetParameters.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S7_WaterCol_MetParameters.jpg",width=10,height=12,units="in",dpi=320)
 
 ###############################################################################
 ## Format and add thermocline depth as a potential predictor variable, too
@@ -1103,7 +1103,7 @@ arima_hypo <- plyr::join_all(list(arima_hypo,met_daily,wtr_d),by="DateTime",type
 ## Add in days since anoxia for Hypo
 arima_hypo <- left_join(arima_hypo,hypo_do_mgL,by=c("DateTime","Depth")) %>% 
   dplyr::select(DateTime,Depth,DOC_mgL,DOC_processing_mgL,VW_Temp_C,VW_DO_mgL.x,VW_Chla_ugL,rain_tot_mm,
-                ShortwaveRadiationUp_Average_W_m2,Inflow_m3s,wtr_d,anoxia_time_d) %>% 
+                Inflow_m3s,anoxia_time_d) %>% 
   dplyr::rename(VW_DO_pSat = VW_DO_mgL.x)
 
 ## Add in thermocline depth information

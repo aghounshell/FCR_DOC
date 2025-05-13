@@ -1,0 +1,19 @@
+year,type,value,,,,Epi. Internal,Hypo. Internal,Total Inflow
+all,epi_internal,29,,,all,29,6,65
+all,hypo_internal,6,,,2017,37,10,53
+all,inflow,65,,,2018,38,4,57
+2017,epi_internal,37,,,2019,39,9,52
+2017,hypo_internal,10,,,2020,7,1,93
+2017,inflow,53,,,2021,49,8,42
+2018,epi_internal,38,,,,,,
+2018,hypo_internal,4,,,,,,
+2018,inflow,57,,,,,,
+2019,epi_internal,39,,,,,,
+2019,hypo_internal,9,,,,,,
+2019,inflow,52,,,,,,
+2020,epi_internal,7,,,,,,
+2020,hypo_internal,1,,,,,,
+2020,inflow,93,,,,,,
+2021,epi_internal,49,,,,,,
+2021,hypo_internal,8,,,,,,
+2021,inflow,42,,,,,,
