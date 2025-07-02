@@ -619,6 +619,9 @@ chla_ugL <- chla_ugL %>%
                                                                ifelse(hypo_top_depth_m == 9, Chla_9.0, NA)))))))) %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
+## Save formatted data to compare with EEMs
+write_csv(chla_ugL, "./Data/Formated_Chla_ugL.csv")
+
 ## Plot
 chla_plot <- chla_ugL %>%  
   drop_na(epi_Chla,hypo_Chla) %>% 
