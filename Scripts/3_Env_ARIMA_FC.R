@@ -24,6 +24,10 @@
 ## in ARIMA modeling
 ## Use PACF to ID important AR lags
 
+## Modified: 01 August 2025, A. Hounshell
+## Updating to include updated discharge uncertainty estimates for model
+## input
+
 ###############################################################################
 ## Clear workspace
 rm(list = ls())
@@ -44,7 +48,7 @@ doc_mgL <- read.csv("./Data/EpiHypo_Weir_FC_DOC.csv") %>%
 
 ###############################################################################
 ## Add in DOC processing - calculated from Eco_DOC_rlnorm_FC.R
-doc_processing <- read_csv("./Data/20Mar25_final_doc_inputs_fc.csv") %>% 
+doc_processing <- read_csv("./Data/01Aug25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 doc_proc_mgL <- doc_processing %>% 
@@ -117,7 +121,7 @@ hypo_distribution <-  summer_hypo_processing %>%
   theme(legend.position = "none")
 
 ### Load in model summary from 2_Eco_DOC_rlnorm_FC.R
-all_summary <- read.csv("./Data/model_summary_fc.csv")
+all_summary <- read.csv("./Data/Table_S5_model_summary_fc.csv")
 
 ## Plot
 func_order <- c("mean_doc_entr_g","mean_doc_inflow_g_comb", "mean_doc_hypo_outflow_g", 
@@ -148,7 +152,7 @@ contributions <- all_summary %>%
   pivot_longer(cols = epi_internal:inflow,
                names_to = "type")
 
-write.csv(contributions, "./Data/model_contributions_fc.csv",row.names=FALSE)
+write.csv(contributions, "./Data/Table_S6_model_contributions_fc.csv",row.names=FALSE)
 
 ## Plot overall contributions
 type_order <- c('hypo_internal','epi_internal','inflow')
