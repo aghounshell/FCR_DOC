@@ -67,7 +67,7 @@ peak_a <- avg_eems %>%
   geom_point(size=2)+
   geom_line(size=1)+
   scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
-  ylab("Peak A (Allo. DOM)")+
+  ylab("Peak A (Allo. DOM, RFU)")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
                      limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
@@ -86,7 +86,7 @@ peak_t <- avg_eems %>%
   geom_point(size=2)+
   geom_line(size=1)+
   scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
-  ylab("Peak T (Auto. DOM)")+
+  ylab("Peak T (Auto. DOM, RFU)")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
                      limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
@@ -113,6 +113,6 @@ chla <- chla_ugL %>%
 ggarrange(peak_a,peak_t,chla,common.legend = TRUE,ncol=1,nrow=3,labels = c("A.", "B.","C."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_SX_2019_EEMs.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S7_2019_EEMs.jpg",width=10,height=12,units="in",dpi=320)
 
 
