@@ -69,6 +69,18 @@ inflow <- read.csv("./Data/Inflow_2013_2021.csv",header=T) %>%
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))%>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & DateTime < as.POSIXct("2022-01-01"))
 
+## For future plotting :)
+## Create data frame of mean daily temperature inflow data
+inflow_temp_daily <- inflow %>% 
+  select(DateTime,WVWA_Temp_C,VT_Temp_C) %>% 
+  group_by(DateTime) %>% 
+  summarise_at(vars("WVWA_Temp_C","VT_Temp_C"),funs(mean(.,na.rm=TRUE),sd(.,na.rm=TRUE))) %>% 
+  rename(mean_WVWA_Temp_C=mean_WVWA_Temp_C, sd_WVWA_Temp_C=sd_WVWA_Temp_C,
+         mean_VT_Temp_C=mean_VT_Temp_C, sd_VT_Temp_C=sd_VT_Temp_C)
+
+## Save for plotting
+write.csv(inflow_temp_daily, "./Data/inflow_temp_daily.csv",row.names=FALSE)
+
 ## If flows are 'below detection' (i.e., Flow_Flag = 3 or 13)
 min_flow_cms <- min(inflow$WVWA_Flow_cms,na.rm=TRUE)
 

@@ -307,6 +307,23 @@ temp_c <- temp_c %>%
 # temp_c <- temp_c[!(temp_c$DateTime = as.POSIXct("2021-08-20") | temp_c$DateTime == as.POSIXct("2020-07-08") | temp_c$DateTime == as.POSIXct("2019-05-30") | temp_c$DateTime == as.POSIXct("2019-04-29") | temp_c$DateTime == as.POSIXct("2017-09-17")),]
 temp_c <- temp_c[-c(267,348,353,418,484),]
 
+## Load in YSI temp for site 200 - for plotting
+ysi_temp <- read.csv("./Data/YSI_PAR_profiles_2013-2021.csv",header=T) %>% 
+  filter(Reservoir=="FCR" & Site == 200) %>%
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST"))) %>%
+  drop_na(Temp_C)
+
+## Load in Inflow Temp for Site 100 - for plotting
+inflow_temp <- read.csv("./Data/inflow_temp_daily.csv",header=T) %>% 
+  mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
+
+ggplot(inflow_temp)+
+  geom_line(mapping=aes(x=DateTime,y=WVWA_Temp_C_mean,color="WVWA"))+
+  geom_line(mapping=aes(x=DateTime,y=VT_Temp_C_mean,color="VT"))
+
+inflow_temp <- inflow_temp %>%
+  mutate(WVWA_Temp_C_mean = ifelse(is.na(WVWA_Temp_C_mean), VT_Temp_C_mean, WVWA_Temp_C_mean))
+
 ## Plot data by epi and hypo
 temp_plot <- temp_c %>%  
   drop_na(epi_temp,hypo_temp) %>% 
@@ -321,12 +338,15 @@ temp_plot <- temp_c %>%
   annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
+  geom_line(data=inflow_temp,mapping=aes(x=DateTime,y=WVWA_Temp_C_mean,color="Weir"),size=1)+
+  geom_line(data=ysi_temp,mapping=aes(x=DateTime,y=Temp_C,color="FC"),size=1)+
+  geom_point(data=ysi_temp,mapping=aes(x=DateTime,y=Temp_C,color="FC"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=epi_temp,color="Epi"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=epi_temp,color="Epi"),size=2)+
   geom_line(mapping=aes(x=DateTime,y=hypo_temp,color="Hypo"),size=1)+
   geom_point(mapping=aes(x=DateTime,y=hypo_temp,color="Hypo"),size=2)+
-  scale_color_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
-  scale_fill_manual(breaks=c('Epi','Hypo'),values=c("#7EBDC2","#393E41"))+
+  scale_color_manual(breaks=c('Epi','Hypo','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
+  scale_fill_manual(breaks=c('Epi','Hypo','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
   ylab(expression(VW~Temp~(C^o)))+
@@ -339,6 +359,8 @@ final_temp_c <- temp_c %>%
   pivot_longer(!DateTime, names_to = "Depth", values_to = "VW_Temp_C") %>% 
   mutate(Depth = ifelse(Depth == "epi_temp", "Epi",
                         ifelse(Depth == "hypo_temp", "Hypo", NA)))
+
+###############################################################################
 ## Dissolved oxygen
 do_pSat <- casts_depths %>% 
   select(DateTime,new_depth,DO_pSat) %>% 
