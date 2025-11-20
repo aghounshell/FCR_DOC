@@ -20,6 +20,12 @@
 ## Incorporate estimate for Falling Creek inflow (FC) in addition to the 
 ## contribution from the primary inflow (weir; Tunnel Branch, FC)
 
+### Updated: 1 August 2025, A. Hounshell
+## Incoporate Q error following 1a_Q_Error.R
+## Used a pressure transducer error of 0.1% to estimate error in
+## discharge calculations
+## Estimated an error of 5% for inflow
+
 ###############################################################################
 # Clear workspace
 rm(list = ls())
@@ -63,6 +69,18 @@ inflow <- read.csv("./Data/Inflow_2013_2021.csv",header=T) %>%
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))%>% 
   filter(DateTime >= as.POSIXct("2017-01-01") & DateTime < as.POSIXct("2022-01-01"))
 
+## For future plotting :)
+## Create data frame of mean daily temperature inflow data
+inflow_temp_daily <- inflow %>% 
+  select(DateTime,WVWA_Temp_C,VT_Temp_C) %>% 
+  group_by(DateTime) %>% 
+  summarise_at(vars("WVWA_Temp_C","VT_Temp_C"),funs(mean(.,na.rm=TRUE),sd(.,na.rm=TRUE))) %>% 
+  rename(mean_WVWA_Temp_C=WVWA_Temp_C_mean, sd_WVWA_Temp_C=WVWA_Temp_C_sd,
+         mean_VT_Temp_C=VT_Temp_C_mean, sd_VT_Temp_C=VT_Temp_C_sd)
+
+## Save for plotting
+write.csv(inflow_temp_daily, "./Data/inflow_temp_daily.csv",row.names=FALSE)
+
 ## If flows are 'below detection' (i.e., Flow_Flag = 3 or 13)
 min_flow_cms <- min(inflow$WVWA_Flow_cms,na.rm=TRUE)
 
@@ -103,14 +121,10 @@ inflow_daily_full <- inflow_daily_full %>%
   dplyr::rename(DateTime = `seq(as.POSIXct("2017-01-01", tz = "EST"), as.POSIXct("2021-12-31", tz = "EST"), by = "days")`)
 inflow_daily_full <- left_join(inflow_daily_full, inflow_daily,by="DateTime")
 
-# Calculate total variance - daily sd + difference between WVWA and VT inflow (0.002 cms)
+# Calculate total variance - use 5% uncertainty in calculated flow
 # This will be used as inflow uncertainty for modeling
 inflow_daily_full <- inflow_daily_full %>% 
-  mutate(total_sd = sqrt((sd^2)+((mean(inflow$flow_diff,na.rm=TRUE))^2)))
-
-# If total sd is NA for that day, then assume the SD is equal to the mean SD for the entire study period
-inflow_daily_full <- inflow_daily_full %>% 
-  mutate(total_sd = ifelse(is.na(total_sd),mean(inflow_daily_full$total_sd,na.rm=TRUE),sd))
+  mutate(total_sd = mean_flow_cms * 0.05)
 
 # Create matrix of random variables from mean and total_sd
 inflow_model_input <- as.data.frame(matrix(data = NA, ncol=1000,nrow=length(inflow_daily_full$DateTime)))
@@ -131,6 +145,9 @@ for (i in 1:length(inflow_daily_full$DateTime)){
     inflow_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
   }
 }
+
+## Check that there are no negative values
+(any(inflow_model_input < 0, na.rm = TRUE))
 
 ### Thinking about contribution of secondary inflow (Falling Creek, FC)
 ## Load in discrete discharge measurements from weir/TB vs. FC for 2019-2021
@@ -166,11 +183,8 @@ FC_flow_daily_full <- left_join(FC_flow_daily_full, inflow_daily,by="DateTime")
 
 FC_flow_daily_full <- FC_flow_daily_full %>% 
   mutate(fc_flow_cms = 10^(fc_flow_mod$coefficients[2]*log10(mean_flow_cms)+fc_flow_mod$coefficients[1]),
-         fc_flow_cms_sd = sqrt((sd^2)+(1.771^2))/2) %>% # Add error from weir discharge measurements + wetlands flow modeled error
+         fc_flow_cms_sd = (mean_flow_cms*0.05)+log10(1.771)) %>% # Add error from weir discharge measurements + wetlands flow modeled error
   select(DateTime,fc_flow_cms,fc_flow_cms_sd) 
-
-FC_flow_daily_full <- FC_flow_daily_full %>% 
-  mutate(fc_flow_cms_sd = ifelse(is.na(fc_flow_cms_sd),mean(FC_flow_daily_full$fc_flow_cms_sd,na.rm=TRUE),fc_flow_cms_sd))
 
 ## Save for visualizations
 FC_flow_out <- left_join(FC_flow_daily_full,discrete_q,by="DateTime") %>% 
@@ -199,6 +213,9 @@ for (i in 1:length(FC_flow_daily_full$DateTime)){
     fc_flow_model_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
   }
 }
+
+## Check for negative numbers...
+(any(fc_flow_model_input < 0, na.rm = TRUE))
 
 ### Load DOC data ----
 # From EDI: https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=199&revision=10
@@ -245,6 +262,8 @@ doc_100 <- left_join(chem_100,inflow_daily,by="DateTime") %>%
 ## Define C-Q relationship: use log relationship
 cq_mod_log <- lm(DOC_mgL~log10(mean_flow_cms),data=doc_100)
 
+summary(cq_mod_log) # Standard error = 1.016
+
 doc_100 %>% 
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
   ggplot(mapping=aes(x=log10(mean_flow_cms),y=DOC_mgL))+
@@ -278,7 +297,7 @@ doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(doc_inf
 for (i in 1:length(doc_inflow_full$DateTime)){
   # Find location and shape for rlnorm using the mean and sd
   m <- doc_inflow_full$DOC_mgL[i]
-  s <- sqrt((0.11^2)+(1.016^2))/2 ## Add in measured (DOC MDL) and C-Q model
+  s <- 0.11+1.016 ## Add in measured (DOC MDL) and C-Q model
   location <- log(m^2 / sqrt(s^2 + m^2))
   shape <- sqrt(log(1 + (s^2 / m^2)))
   
@@ -286,12 +305,17 @@ for (i in 1:length(doc_inflow_full$DateTime)){
   doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
 
+## Check for any negative values
+(any(doc_inflow_input < 0, na.rm = TRUE))
+
 ## Then check relationship with flow and DOC at Falling Creek- use to estimate 
 ## DOC concentration at site 200 (FC)
 discrete_q <- discrete_q %>% 
   left_join(chem_200,by=c("DateTime","Site"))
 
 fc_doc_mod <- lm(DOC_mgL~Flow_cms,discrete_q)
+
+summary(fc_doc_mod)
 
 fc_doc_test <- data.frame(fc_flow=seq(min(FC_flow_daily_full$fc_flow_cms,na.rm=TRUE),0.16,len=1000))
 
@@ -344,13 +368,16 @@ fc_doc_inflow_input <- as.data.frame(matrix(data=NA, ncol=1000, nrow=length(fc_d
 for (i in 1:length(fc_doc_inflow_full$DateTime)){
   # Find location and shape for rlnorm using the mean and sd
   m <- fc_doc_inflow_full$DOC_mgL[i]
-  s <- sqrt((0.11^2)+(0.871^2))/2 ## Add in measured (DOC MDL) and C-Q model
+  s <- 0.11+0.871 ## Add in measured (DOC MDL) and C-Q model
   location <- log(m^2 / sqrt(s^2 + m^2))
   shape <- sqrt(log(1 + (s^2 / m^2)))
   
   # Calculate distribution for FC
   fc_doc_inflow_input[i,1:1000] <- rlnorm(n=1000,mean=location,sd=shape)
 }
+
+## Check for any negative values
+any(fc_doc_inflow_input < 0, na.rm = TRUE)
 
 ###############################################################################
 # Load in bathymetric data from EDI
@@ -359,6 +386,7 @@ for (i in 1:length(fc_doc_inflow_full$DateTime)){
 # inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/1254/1/f7fa2a06e1229ee75ea39eb586577184" 
 # infile1 <- paste0(getwd(),"/Data/bathy_summary_stats.csv")
 # download.file(inUrl1,infile1,method="curl")
+
 bathy_data <- read.csv("./Data/bathy_summary_stats.csv", header=T) %>% 
   filter(Reservoir=="FCR")
 
@@ -408,13 +436,16 @@ for (i in 1:length(doc_box_full$DateTime)){
   for (k in 1:7){
     # Find location and shape for rlnorm using the mean and sd
     m <- doc_box_full[i,k+1]
-    s <- 0.11/2
+    s <- 0.11
     location <- log(m^2 / sqrt(s^2 + m^2))
     shape <- sqrt(log(1 + (s^2 / m^2)))
     
     doc_lake_model_input[i,1:1000,k] <- rlnorm(n=1000,mean=location,sd=shape)
   }
 }
+
+## Check for any negative values
+(any(doc_lake_model_input < 0, na.rm = TRUE))
 
 ## Create boot-strapped parameters for volume - assuming volume +/-10%
 vol_model_input <- as.data.frame(matrix(data=NA, ncol=1000,nrow=7))
@@ -974,10 +1005,10 @@ final_doc_inputs_g <- final_doc_inputs_g %>%
   filter(DateTime >= as.POSIXct("2017-01-01"))
 
 ## Save final model output
-write.csv(final_doc_inputs_g, "./Data/20Mar25_final_doc_inputs_fc.csv",row.names=FALSE)
+write.csv(final_doc_inputs_g, "./Data/01Aug25_final_doc_inputs_fc.csv",row.names=FALSE)
 
 ## Load in final model output (as needed!)
-final_doc_inputs_g <- read.csv("./Data/20Mar25_final_doc_inputs_fc.csv") %>% 
+final_doc_inputs_g <- read.csv("./Data/01Aug25_final_doc_inputs_fc.csv") %>% 
   mutate(DateTime = as.POSIXct(strptime(DateTime, "%Y-%m-%d", tz="EST")))
 
 ## Constrain to sampling days
@@ -1320,6 +1351,6 @@ all_summary <- rbind(mean_model_timepoints,mean_model_timepoints_years)
 
 all_summary <- all_summary[, c("func", "year", "min", "max", "median", "mean", "sd")]
 
-write.csv(all_summary, "./Data/model_summary_fc.csv",row.names=FALSE)
+write.csv(all_summary, "./Data/Table_S5_model_summary_fc.csv",row.names=FALSE)
 
 ###############################################################################

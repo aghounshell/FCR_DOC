@@ -34,6 +34,7 @@ eems_data <- read.csv("./Data/OpticalData.csv",header=T) %>%
 
 ## Combine replicates, when available
 avg_eems <- eems_data %>% 
+  select(-Reservoir) %>% 
   group_by(Site,DateTime,Depth_m) %>% 
   summarise_all(list(mean, sd),na.rm=TRUE)
 
@@ -59,15 +60,16 @@ chla_ugL <- read.csv("./Data/Formated_Chla_ugL.csv",header=T) %>%
 peak_a <- avg_eems %>% 
   drop_na(A_fn1) %>% 
   ggplot(mapping=aes(x=DateTime,y=A_fn1,color=loc))+
-  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.3)+ # Oxygen on (technically turned-off on 2019-12-01)
+  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on (technically turned-off on 2019-12-01)
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  geom_point(size=2)+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=A_fn1-A_fn2, ymax=A_fn1+A_fn2))+
   geom_line(size=1)+
   scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
-  ylab("Peak A (Allo. DOM)")+
+  ylab("Peak A (Allo., RFU)")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
                      limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
@@ -78,15 +80,37 @@ peak_a <- avg_eems %>%
 peak_t <- avg_eems %>% 
   drop_na(T_fn1) %>% 
   ggplot(mapping=aes(x=DateTime,y=T_fn1,color=loc))+
-  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.3)+ # Oxygen on
-  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.3)+ # Oxygen on (technically turned-off on 2019-12-01)
+  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on (technically turned-off on 2019-12-01)
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
-  geom_point(size=2)+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=T_fn1-T_fn2, ymax=T_fn1+T_fn2))+
   geom_line(size=1)+
   scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
-  ylab("Peak T (Auto. DOM)")+
+  ylab("Peak T (Auto., RFU)")+
+  xlab("2019")+
+  scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
+                     limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
+                     labels=c("May","Jun","Jul","Aug","Sep","Oct","Nov"))+
+  theme_classic(base_size = 15)+
+  theme(legend.title=element_blank())
+
+ratio <- avg_eems %>% 
+  drop_na(A_T_fn1) %>% 
+  ggplot(mapping=aes(x=DateTime,y=A_T_fn1,color=loc))+
+  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on (technically turned-off on 2019-12-01)
+  geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
+  geom_hline(yintercept = 1,linetype="dotted",color="darkgrey")+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=A_T_fn1-A_T_fn2, ymax=A_T_fn1+A_T_fn2))+
+  geom_line(size=1)+
+  scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
+  ylab("Ratio A:T")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
                      limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
@@ -96,11 +120,15 @@ peak_t <- avg_eems %>%
 
 chla <- chla_ugL %>% 
   ggplot()+
+  annotate(geom="rect",xmin = as.POSIXct("2019-06-03"), xmax = as.POSIXct("2019-06-17"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-07-08"),xmax = as.POSIXct("2019-07-19"), ymin=-Inf, ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-08-05"),xmax = as.POSIXct("2019-08-19"),ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on
+  annotate(geom="rect",xmin = as.POSIXct("2019-09-02"), xmax = Inf,ymin=-Inf,ymax=Inf,alpha=0.2)+ # Oxygen on (technically turned-off on 2019-12-01)
   geom_vline(xintercept = as.POSIXct("2019-10-23"),linetype="dashed",color="darkgrey")+
   geom_line(mapping=aes(x=DateTime,y=epi_Chla,color="Epi_Chla"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=epi_Chla,color="Epi_Chla"),size=2)+
+  geom_point(mapping=aes(x=DateTime,y=epi_Chla,color="Epi_Chla"),size=3)+
   geom_line(mapping=aes(x=DateTime,y=hypo_Chla,color="Hypo_Chla"),size=1)+
-  geom_point(mapping=aes(x=DateTime,y=hypo_Chla,color="Hypo_Chla"),size=2)+
+  geom_point(mapping=aes(x=DateTime,y=hypo_Chla,color="Hypo_Chla"),size=3)+
   scale_color_manual(breaks=c('Epi_Chla','Hypo_Chla'),values=c("#7EBDC2","#393E41"),labels=c("Epi","Hypo"))+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
                      limits = c(as.POSIXct("2019-05-01"),as.POSIXct("2019-11-15")),
@@ -110,9 +138,9 @@ chla <- chla_ugL %>%
   theme_classic(base_size = 15)+
   theme(legend.title=element_blank())
 
-ggarrange(peak_a,peak_t,chla,common.legend = TRUE,ncol=1,nrow=3,labels = c("A.", "B.","C."),
+ggarrange(peak_a,peak_t,ratio,chla,common.legend = TRUE,ncol=1,nrow=4,labels = c("A.", "B.","C.","D."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_SX_2019_EEMs.jpg",width=10,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S7_2019_EEMs.jpg",width=10,height=13,units="in",dpi=320)
 
 
