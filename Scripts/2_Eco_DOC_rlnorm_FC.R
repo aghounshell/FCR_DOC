@@ -562,7 +562,7 @@ inflow_doc <- doc_wgt %>%
   annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_line(size=0.75)+
   geom_point(size=2)+
-  scale_color_manual(values=c("#E7804B","#F0B670"),name="")+
+  scale_color_manual(values=c("#E7804B","#F0B670"),labels=c("TB","FC"),name="")+
   xlab("")+
   ylab(expression(paste("Inflow DOC (mg L"^-1*")")))+
   ylim(0,8)+
@@ -573,7 +573,7 @@ inflow_doc <- doc_wgt %>%
 ggarrange(vw_epi,vw_hypo,inflow_doc,nrow=3,ncol=1,labels = c("A.", "B.", "C."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig3_VW_DOC_R1.jpg",width=7,height=10,units="in",dpi=320)
+ggsave("./Figs/Fig4_VW_DOC_AS_R1.jpg",width=7,height=10,units="in",dpi=320)
 
 order <- c("Epi","Hypo","Weir","FC")
 
@@ -581,7 +581,8 @@ all_box <- doc_wgt %>%
   filter(DateTime >= as.POSIXct("2017-01-01")) %>% 
   ggplot(mapping=aes(x=factor(Loc,order),y=DOC_mgL,fill=Loc))+
   geom_boxplot(size=0.8,alpha=0.5)+
-  scale_fill_manual(breaks=c('Epi','Hypo','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
+  scale_fill_manual(breaks=c('Epi','Hypo','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","TB","FC"))+
+  scale_x_discrete(labels=c("Epi","Hypo","TB","FC"))+
   xlab("")+
   ylab(expression(paste("DOC (mg L"^-1*")")))+
   theme_classic(base_size = 15)+
@@ -592,7 +593,7 @@ year_box <- doc_wgt %>%
   filter(DateTime >= as.POSIXct("2017-01-01")) %>%
   ggplot(mapping=aes(x=as.character(year),y=DOC_mgL,fill=factor(Loc,order)))+
   geom_boxplot(size=0.8,alpha=0.5)+
-  scale_fill_manual(breaks=c('Epi','Hypo','Weir',"FC"),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"))+
+  scale_fill_manual(breaks=c('Epi','Hypo','Weir',"FC"),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","TB","FC"))+
   xlab("Year")+
   ylab(expression(paste("DOC (mg L"^-1*")")))+
   ylim(0,8)+
@@ -1017,7 +1018,7 @@ epi_inflow <- final_doc_inputs_g %>%
   scale_color_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"), values=c("#F0B670","#393E41","#7EBDC2"))+
   scale_fill_manual(breaks=c("Inflow","Hypo Inflow","FC Inflow"),values=c("#F0B670","#393E41","#7EBDC2"))+
   xlim(as.POSIXct("2017-05-01"),as.POSIXct("2021-11-15"))+
-  #ylim(0,30)+
+  ylim(-200,200)+
   guides(fill="none")+
   theme_classic(base_size=15)+
   theme(legend.title=element_blank(),legend.position = "top")
@@ -1119,10 +1120,16 @@ epi_internal <- final_doc_inputs_g %>%
   theme_classic(base_size=15)+
   theme(legend.position = "none")
 
-ggarrange(epi_inflow,epi_outflow,epi_change,epi_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
+## Separate into two figures for the SI
+ggarrange(epi_inflow,epi_outflow,nrow=2,ncol=1,labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S5_Epi_model_FC.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S5a_Epi_model_FC.jpg",width=12,height=9,units="in",dpi=320)
+
+ggarrange(epi_change,epi_internal,nrow=2,ncol=1,labels = c("C.", "D."),
+          font.label=list(face="plain",size=15))
+
+ggsave("./Figs/Fig_S5b_Epi_model_FC.jpg",width=12,height=9,units="in",dpi=320)
 
 ## Plot hypo model inputs/outputs
 hypo_inflow <- final_doc_inputs_g %>% 
@@ -1250,10 +1257,16 @@ hypo_internal <- final_doc_inputs_g %>%
   theme_classic(base_size=15)+
   theme(legend.position = "none")
 
-ggarrange(hypo_inflow,hypo_outflow,hypo_change,hypo_internal,nrow=4,ncol=1,labels = c("A.", "B.", "C.", "D."),
+## Separate into two figures for the SI
+ggarrange(hypo_inflow,hypo_outflow,nrow=2,ncol=1,labels = c("A.", "B."),
           font.label=list(face="plain",size=15))
 
-ggsave("./Figs/Fig_S6_Hypo_Model_FC.jpg",width=9,height=12,units="in",dpi=320)
+ggsave("./Figs/Fig_S6a_Hypo_Model_FC.jpg",width=12,height=9,units="in",dpi=320)
+
+ggarrange(hypo_change,hypo_internal,nrow=2,ncol=1,labels = c("C.", "D."),
+          font.label=list(face="plain",size=15))
+
+ggsave("./Figs/Fig_S6b_Hypo_Model_FC.jpg",width=12,height=9,units="in",dpi=320)
 
 ###############################################################################
 ### Thinking about ways to visualize the 'big picture'

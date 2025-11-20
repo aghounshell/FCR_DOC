@@ -843,7 +843,7 @@ inflow_daily_fc <- read.csv("./Data/inflow_daily_fc.csv") %>%
 
 # Plot daily inflow for the study period
 inflow_plot <- 
-  ggplot(mapping=aes(x=DateTime,y=mean_flow_cms))+
+  ggplot(inflow_daily %>% na.omit(mean), mapping=aes(x=DateTime,y=mean))+
   geom_vline(xintercept = as.POSIXct("2017-10-25"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2017-05-01"), xmax = as.POSIXct("2017-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2018-10-21"),linetype="dashed",color="darkgrey")+
@@ -854,11 +854,11 @@ inflow_plot <-
   annotate("rect", xmin = as.POSIXct("2020-05-01"), xmax = as.POSIXct("2020-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
   geom_vline(xintercept = as.POSIXct("2021-11-03"),linetype="dashed",color="darkgrey")+
   annotate("rect", xmin = as.POSIXct("2021-05-01"), xmax = as.POSIXct("2021-11-15"), ymin = -Inf, ymax = Inf,alpha = .3,fill = "darkgrey")+
-  geom_line(inflow_daily %>% na.omit(mean_flow_cms),mapping=aes(x=DateTime,y=mean_flow_cms,color="Weir"),size=1)+
-  geom_point(inflow_daily %>% na.omit(mean_flow_cms),mapping=aes(x=DateTime,y=mean_flow_cms,color="Weir"),size=2)+
+  geom_line(inflow_daily %>% na.omit(mean_flow),mapping=aes(x=DateTime,y=mean,color="Weir"),size=1)+
+  geom_point(inflow_daily %>% na.omit(mean),mapping=aes(x=DateTime,y=mean,color="Weir"),size=2)+
   geom_line(inflow_daily_fc %>% drop_na(est_flow_cms),mapping=aes(x=DateTime,y=est_flow_cms,color="FC"),size=1)+
-  scale_color_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"))+
-  scale_fill_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"))+
+  scale_color_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"),labels=c("TB","FC"))+
+  scale_fill_manual(breaks=c('Weir','FC'),values=c("#7EBDC2","#393E41"),labels=c("TB","FC"))+
   xlim(as.POSIXct("2017-01-01"),as.POSIXct("2021-12-31"))+
   xlab("") + 
   ylab(expression(Inflow~(~m^3~s^-1)))+
