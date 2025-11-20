@@ -42,7 +42,7 @@ avg_eems <- eems_data %>%
 avg_eems <- avg_eems %>% 
   mutate(loc = ifelse(Site == 50 & Depth_m == 0.1, "Surface",
                       ifelse(Site == 50 & Depth_m == 9, "Bottom",
-                             ifelse(Site == 100, "Weir",
+                             ifelse(Site == 100, "TB",
                                     ifelse(Site == 200, "FC", NA))))) %>% 
   mutate(doy = yday(DateTime)) %>% 
   filter(doy>=122 & doy<=320)
@@ -68,7 +68,7 @@ peak_a <- avg_eems %>%
   geom_point(size=3)+
   geom_errorbar(aes(ymin=A_fn1-A_fn2, ymax=A_fn1+A_fn2))+
   geom_line(size=1)+
-  scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
+  scale_color_manual(breaks=c('Surface','Bottom','TB','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","TB","FC"))+
   ylab("Peak A (Allo., RFU)")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
@@ -88,7 +88,7 @@ peak_t <- avg_eems %>%
   geom_point(size=3)+
   geom_errorbar(aes(ymin=T_fn1-T_fn2, ymax=T_fn1+T_fn2))+
   geom_line(size=1)+
-  scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
+  scale_color_manual(breaks=c('Surface','Bottom','TB','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","TB","FC"))+
   ylab("Peak T (Auto., RFU)")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
@@ -109,7 +109,7 @@ ratio <- avg_eems %>%
   geom_point(size=3)+
   geom_errorbar(aes(ymin=A_T_fn1-A_T_fn2, ymax=A_T_fn1+A_T_fn2))+
   geom_line(size=1)+
-  scale_color_manual(breaks=c('Surface','Bottom','Weir','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","Weir","FC"))+
+  scale_color_manual(breaks=c('Surface','Bottom','TB','FC'),values=c("#7EBDC2","#393E41","#F0B670","#E7804B"),labels=c("Epi","Hypo","TB","FC"))+
   ylab("Ratio A:T")+
   xlab("2019")+
   scale_x_continuous(breaks=c(as.POSIXct("2019-05-01"),as.POSIXct("2019-06-01"),as.POSIXct("2019-07-01"),as.POSIXct("2019-08-01"),as.POSIXct("2019-09-01"),as.POSIXct("2019-10-01"),as.POSIXct("2019-11-01")),
